@@ -1,0 +1,4 @@
+[INFO] 15:29:39:81 Kernel/(5215:5215): Iniciando Kernel
+
+[INFO] 15:50:53:386 Kernel/(6989:6989): Iniciando Kernel
+
