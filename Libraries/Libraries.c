@@ -1,6 +1,6 @@
-#include "TP_Library.h"
+#include "Libraries.h"
 
-#include "TP_Library.h"
+#include "Libraries.h"
 
 //prueba libraries
 void imprimir(char* filename){
@@ -27,34 +27,24 @@ void print_image(FILE *fptr)
 		printf("%s",read_string);
 }
 
-struct addrinfo* _configurar_addrinfo(char *IP, char* Port) {
-	struct addrinfo hints;
-	struct addrinfo* serverInfo = malloc(sizeof(struct addrinfo));
-	int16_t error;
-	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-		error = getaddrinfo(IP, Port, &hints, &serverInfo);
-	if (error) {
-		error_show("Problema con el getaddrinfo()!: %s\n", gai_strerror(error));
-		exit(EXIT_FAILURE);
-	}
-	return serverInfo;
+struct sockaddr_in* _configurar_addrinfo(char *IP, char* Port) {
+	struct sockaddr_in *my_addr = malloc(sizeof(struct sockaddr_in));
+    my_addr->sin_family = AF_INET;         // Ordenación de bytes de la máquina
+    my_addr->sin_port = htons(Port);     // short, Ordenación de bytes de la red
+    my_addr->sin_addr.s_addr = INADDR_ANY; // Rellenar con mi dirección IP
+    memset(&(my_addr->sin_zero), '\0', 8); // Poner a cero el resto de la estructura
+
+	return my_addr;
 }
 
 un_socket conectar_a(char *IP, char* Port) {
-	struct addrinfo* serverInfo = _configurar_addrinfo(IP, Port);
+	struct sockaddr_in* serverInfo = _configurar_addrinfo(IP, Port);
 	if (serverInfo == NULL) {
 		exit(EXIT_FAILURE);
 	}
-	int serverSocket = socket(serverInfo->ai_family, serverInfo->ai_socktype,
-			serverInfo->ai_protocol);
-	if (serverSocket == -1) {
-		error_show("\n No se pudo conectar\n",
-		errno);
-		exit(EXIT_FAILURE);
-	}
-	if (connect(serverSocket, serverInfo->ai_addr, serverInfo->ai_addrlen)
+	int serverSocket = crear_socket(serverInfo);
+
+	if (connect(serverSocket, (struct sockaddr *)&serverInfo, sizeof(struct sockaddr))
 			== -1) {
 		puts("\n");
 		error_show(
@@ -63,8 +53,56 @@ un_socket conectar_a(char *IP, char* Port) {
 		close(serverSocket);
 		exit(EXIT_FAILURE);
 	}
-	freeaddrinfo(serverInfo);
+	free(serverInfo);
 	return serverSocket;
+}
+
+
+un_socket crear_socket(){
+	int sockfd;
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("socket");
+        exit(1);
+    }
+	return sockfd;
+}
+
+un_socket socket_escucha(char* IP, char* Port) {
+	struct sockaddr_in* serverInfo = _configurar_addrinfo(IP, Port);
+
+	if (serverInfo == NULL) {
+		exit(EXIT_FAILURE);
+	}
+
+
+
+	/* no descomentar por favor, no hace absoultamente nada útil para este TP
+	socketEscucha = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+	bind(socketEscucha, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	*/
+	int socketEscucha, i;
+
+	//for(i = 1; i == 5000; i++) {
+		socketEscucha = crear_socket(serverInfo);
+		if (socketEscucha < 0) {
+			//continue;
+		}
+		// lose the pesky "address already in use" error message
+		int enable = 1;
+	    if (setsockopt(socketEscucha, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) { //forzar la reutilizacion del socket
+	        perror("setsockopt");
+	        exit(1);
+	    }
+		if (bind(socketEscucha, (struct sockaddr *) serverInfo, sizeof(struct sockaddr))== -1) {
+			close(socketEscucha);
+			//continue;
+	    }
+		//break;
+	//}
+
+	free(serverInfo);
+
+	return socketEscucha;
 }
 
 char* obtener_mi_ip(){
@@ -103,27 +141,6 @@ char* obtener_mi_ip(){
 		   }
 	   }
 	   return NULL;
-}
-
-un_socket socket_escucha(char* IP, char* Port) {
-
-	struct addrinfo* serverInfo = _configurar_addrinfo(IP, Port);
-
-	if (serverInfo == NULL) {
-		exit(EXIT_FAILURE);
-	}
-
-	int socketEscucha;
-
-	socketEscucha = socket(serverInfo->ai_family, serverInfo->ai_socktype,
-			serverInfo->ai_protocol);
-
-	int enable = 1;setsockopt(socketEscucha, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int));//forzar la reutilizacion del socket
-	bind(socketEscucha, serverInfo->ai_addr, serverInfo->ai_addrlen);
-
-	freeaddrinfo(serverInfo);
-
-	return socketEscucha;
 }
 
 void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
@@ -174,15 +191,28 @@ t_paquete* recibir(un_socket socket_para_recibir) {
 }
 
 un_socket aceptar_conexion(un_socket socket_escuchador) {
-
+	/*
+    if ((new_fd = accept(socket_listener, (struct sockaddr *)&their_addr,
+                                                   &sin_size)) == -1) {
+        perror("accept");
+        continue;
+    }
+    printf("server: got connection from %s\n",
+                                       inet_ntoa(their_addr.sin_addr));
+	*/
 	struct sockaddr_storage remoteaddr;
 
 	socklen_t addrlen;
 
 	addrlen = sizeof remoteaddr;
 
-	un_socket nuevo_socket = accept(socket_escuchador,
-			(struct sockaddr *) &remoteaddr, &addrlen);
+	un_socket nuevo_socket;
+
+	if ((nuevo_socket = accept(socket_escuchador,
+			(struct sockaddr *) &remoteaddr, &addrlen)) == -1)
+        perror("accept");
+        //continue;
+
 
 	return nuevo_socket;
 }
@@ -235,7 +265,7 @@ char get_campo_config_char(t_config* archivo_configuracion, char* nombre_campo) 
 	if(config_has_property(archivo_configuracion, nombre_campo)){
 		valor = config_get_string_value(archivo_configuracion, nombre_campo);
 		printf("El %s es: %s\n", nombre_campo, valor);
-		return valor;
+		return &valor;
 	}
 	return NULL;
 }
@@ -426,7 +456,7 @@ void *get_in_addr(struct sockaddr *sa) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
 
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+    return &(((struct sockaddr_in6*)sa)->sin6_addr); //IPv6 en Argentina, lulz
 }
 
 int size_of_string(char* string) {
@@ -595,4 +625,20 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*)) {
 		list_remove_by_condition(lista, condicion);
 	}
 	return result;
+}
+
+void terminar_programa(t_log* log_file){
+	log_info(log_file, "Finaliza el programa");
+	log_destroy(log_file);
+}
+
+un_socket levantar_servidor(char* IP, char* PORT){
+
+	un_socket socket_listener = socket_escucha(IP, PORT);
+    if (listen(socket_listener, 10) == -1) {
+        perror("listen");
+        exit(1);
+    }
+
+    return socket_listener;
 }

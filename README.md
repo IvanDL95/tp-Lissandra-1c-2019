@@ -34,3 +34,22 @@ En caso de que no esté tomando las commons hacer lo siguiente para cada carpeta
 		carpetas que le indiquemos. Click en el botón de "Add..." (forma de archivo con una flecha verde)
 
 	5. Agregar "commons" (sin comillas). También agregar readline de paso ya que lo vamos a usar para la consola
+
+
+# Linkear Libraries al proyecto
+
+Como esta libreria no se va a instalar, se debe hacer lo siguiente:
+
+1_ Referenciarla en el proyecto
+
+Propiedades -> C/C++ General -> Paths and symbols -> Relacionar la libreria
+
+https://youtu.be/Aw9kXFqWu_I?t=300
+
+2_ Setear el entorno de cada proyecto para que la tome
+
+Agregar LD_LIBRARY_PATH
+
+https://youtu.be/Aw9kXFqWu_I?t=475
+
+https://youtu.be/Aw9kXFqWu_I?t=512
