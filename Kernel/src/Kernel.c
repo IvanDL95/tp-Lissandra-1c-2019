@@ -22,6 +22,7 @@ int main(void){
 
 	logger = log_create("log Kernel.txt", "Kernel", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando Kernel\n");
+	log_destroy(logger);
 
 return 0;
 }
