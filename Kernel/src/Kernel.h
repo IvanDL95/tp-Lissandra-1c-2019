@@ -12,9 +12,10 @@
 #ifndef SRC_KERNEL_H_
 #define SRC_KERNEL_H_
 
+#include <Libraries.h>
 #include <commons/log.h>
 
 t_log* logger;
-char* pathKernelconfig = "~/workspace/tp-2019-1c-La-kernel-de-los-s-bados/Kernel/KernelConfig.cfg";
+char* pathKernelconfig = "KernelConfig.cfg";
 
 #endif /* SRC_KERNEL_H_ */
