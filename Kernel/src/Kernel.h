@@ -18,4 +18,15 @@
 t_log* logger;
 char* pathKernelconfig = "KernelConfig.cfg";
 
+typedef struct {
+	char* IP_MEMORIA;
+	int PUERTO_MEMORIA;
+	int QUANTUM;
+	int MULTIPROCESAMIENTO;
+	int METADATA_REFRESH;
+} Configuracion_Kernel;
+
+Configuracion_Kernel config_Kernel;
+
 #endif /* SRC_KERNEL_H_ */
+
