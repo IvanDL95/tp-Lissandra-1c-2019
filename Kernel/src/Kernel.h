@@ -15,6 +15,9 @@
 #include <Libraries.h>
 #include <commons/log.h>
 
+
+typedef enum API command_api;
+
 t_log* logger;
 char* pathKernelconfig = "KernelConfig.cfg";
 
@@ -27,6 +30,10 @@ typedef struct {
 } Configuracion_Kernel;
 
 Configuracion_Kernel config_Kernel;
+
+void iniciar_consola();
+
+command_api convertir_commando(char*);
 
 #endif /* SRC_KERNEL_H_ */
 

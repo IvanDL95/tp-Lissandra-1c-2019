@@ -25,6 +25,8 @@ int main(void){
 
 	get_configuracion();
 
+	iniciar_consola();
+
 
 return 0;
 }
@@ -49,3 +51,83 @@ void get_configuracion(){
 	return;
 }
 
+void iniciar_consola() {
+
+	char* comando_consola;
+	char* comando[5];
+	char* command_quit = "Quit";
+	int j;
+
+	while (1) {
+		comando_consola = NULL;
+		comando_consola = readline("Kernel_bash:>");
+	        if (strlen(comando_consola)==0 || strcmp(comando_consola,command_quit) == 0) {
+	        	break;
+	        } else {
+	        	log_info(logger, comando_consola);
+	        	j=0;
+	        	comando[j] = strtok(comando_consola, " ");
+	        	while(comando[j] != NULL && j < 5) {
+	        		//printf("\n%s", comando[j]);
+	        		j++;
+	        		comando[j] = strtok(NULL, " ");
+	        	}
+	        	switch (convertir_commando(comando[0])){
+	        	case SELECT:
+	        		printf("\nEjecutando SELECT\n");
+	        		break;
+	        	case INSERT:
+	        		printf("\nEjecutando INSERT\n");
+	        		break;
+	        	case CREATE:
+	        		printf("\nEjecutando CREATE\n");
+	        		break;
+	        	case DESCRIBE:
+	        		printf("\nEjecutando DESCRIBE\n");
+	        		break;
+	        	case DROP:
+	        		printf("\nEjecutando DROP\n");
+	        		break;
+	        	case JOURNAL:
+	        		printf("\nEjecutando JOURNAL\n");
+	        		break;
+	        	case ADD:
+	        		printf("\nEjecutando ADD\n");
+	        		break;
+	        	case RUN:
+	        		printf("\nEjecutando RUN\n");
+	        		break;
+	        	case METRICS:
+	        		printf("\nEjecutando METRICS\n");
+	        		break;
+	        	default:
+	        		printf("\nComando no reconocido\n\n");
+	        	}
+	        	free(comando_consola);
+	        }
+
+	    }
+
+	return;
+}
+
+command_api convertir_commando(char* command) {
+	    static struct comm_api {
+	        const char *key;
+	        command_api token;
+	    } token_table[] = {
+	        { "SELECT", SELECT },
+	        { "INSERT", INSERT },
+			{ "CREATE", CREATE },
+			{ "DESCRIBE", DESCRIBE },
+			{ "DROP", DROP },
+			{ "JOURNAL", JOURNAL },
+			{ "ADD", ADD },
+			{ "RUN", RUN },
+			{ "METRICS", METRICS },
+	        { NULL, 99 }
+	    };
+	    struct comm_api *p = token_table;
+	    for(; p->key != NULL && strcmp(p->key, command) != 0; ++p);
+	    return p->token;
+}
