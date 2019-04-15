@@ -32,11 +32,23 @@
 
 
 enum codigos_de_operacion {
+	cop_generico,
 	codigo_error = -1,
 	cop_ok 		 = 	0,
-	cop_generico = 	2,
+	cop_handshake = 1,
+
+
+
 
 	//Crear más tokens
+};
+
+enum API{
+	SELECT,
+	INSERT,
+	CREATE,
+	DESCRIBE,
+	DROP
 };
 
 typedef int un_socket;
@@ -124,14 +136,14 @@ void liberar_paquete(t_paquete * paquete);
 /**	@NAME: realizar_handshake
  *	@DESC: el cliente realiza un handshake.
  */
-bool realizar_handshake(un_socket socket_del_servidor, int cop_handshake);
+bool realizar_handshake(un_socket socket_del_servidor);
 
 /**	@NAME: esperar_handshake
  *	@DESC: el servidor espera el handshake del cliente.
  */
 
 bool esperar_handshake(un_socket socket_del_cliente,
-		t_paquete* inicio_del_handshake, int cop_handshake);
+		t_paquete* inicio_del_handshake);
 
 /**	@NAME: get_in_addr
  *	@DESC: el servidor espera el handshake del cliente.

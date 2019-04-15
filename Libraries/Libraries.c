@@ -31,7 +31,7 @@ struct sockaddr_in* _configurar_addrinfo(char *IP, char* Port) {
 	struct sockaddr_in *my_addr = malloc(sizeof(struct sockaddr_in));
     my_addr->sin_family = AF_INET;         // Ordenación de bytes de la máquina
     my_addr->sin_port = htons(Port);     // short, Ordenación de bytes de la red
-    my_addr->sin_addr.s_addr = INADDR_ANY; // Rellenar con mi dirección IP
+    my_addr->sin_addr.s_addr = IP; // Rellenar con mi dirección IP
     memset(&(my_addr->sin_zero), '\0', 8); // Poner a cero el resto de la estructura
 
 	return my_addr;
@@ -222,7 +222,7 @@ void liberar_paquete(t_paquete * paquete) {
 	free(paquete);
 }
 
-bool realizar_handshake(un_socket socket_del_servidor, int cop_handshake) {
+bool realizar_handshake(un_socket socket_del_servidor) {
 
 	char * mensaje = malloc(18);
 	mensaje = "Inicio autenticacion";
@@ -240,12 +240,10 @@ bool realizar_handshake(un_socket socket_del_servidor, int cop_handshake) {
 
 }
 
-bool esperar_handshake(un_socket socket_del_cliente, t_paquete* inicio_del_handshake, int cop_handshake) {
+bool esperar_handshake(un_socket socket_del_cliente, t_paquete* inicio_del_handshake) {
 
 	bool resultado = string_equals_ignore_case(
 			(char *) inicio_del_handshake->data, "Inicio autenticacion");
-
-	liberar_paquete(inicio_del_handshake);
 
 	char * respuesta;
 	if (resultado) {
@@ -296,7 +294,15 @@ char** get_campo_config_array(t_config* archivo_configuracion, char* nombre_camp
 	char** valor;
 	if(config_has_property(archivo_configuracion, nombre_campo)){
 		valor = config_get_array_value(archivo_configuracion, nombre_campo);
-		printf("El %s es: %s\n", nombre_campo, valor);
+		printf("Los %s son: [", nombre_campo);
+
+		char* valor_actual = valor[0];
+		printf("%s", valor_actual);
+		for(int i = 1;valor[i] != NULL;i++){
+			valor_actual = valor[i];
+			printf(",%s", valor_actual);
+		}
+		printf("]\n");
 		return valor;
 	}
 	return NULL;
@@ -627,9 +633,13 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*)) {
 	return result;
 }
 
-void terminar_programa(t_log* log_file){
+void terminar_programa(t_log* log_file, un_socket *socket){
+	close(&socket);
+
 	log_info(log_file, "Finaliza el programa");
 	log_destroy(log_file);
+
+	exit(EXIT_SUCCESS);
 }
 
 un_socket levantar_servidor(char* IP, char* PORT){
