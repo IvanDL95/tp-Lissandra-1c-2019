@@ -45,6 +45,7 @@ void get_configuracion(){
 		config_Kernel.METADATA_REFRESH = get_campo_config_int(archivo_configuracion, "METADATA_REFRESH");
 	}
 
+	config_destroy(archivo_configuracion);
 	return;
 }
 
