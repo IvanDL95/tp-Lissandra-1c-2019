@@ -20,30 +20,28 @@
 
 int main(void){
 
-	logger = log_create("log FileSystem.txt", "Lissandra", 1, LOG_LEVEL_INFO);
+	logger = log_create("lissandra.log", "Lissandra", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando File System\n");
 
 	get_configuracion();
 
 	log_info(logger, "Levantando servidor\n");
-	un_socket socket_listener = levantar_servidor(INADDR_ANY,config_LS.PUERTO_ESCUCHA);
+	un_socket socket_listener = socket_escucha(INADDR_ANY,config_LS.PUERTO_ESCUCHA);
 
     log_info(logger, "Estoy escuchando\n");
     while(1) {  // main accept() loop
-    	int sin_size, new_fd;
-        sin_size = sizeof(struct sockaddr_in);
+    	int  new_fd;
         new_fd = aceptar_conexion(socket_listener);
         if (!fork()) { // Este es el proceso hijo
             close(socket_listener); // El hijo no necesita este descriptor
-            if (send(new_fd, "Hello, world!\n", 14, 0) == -1)
-                perror("send");
+            analizar_paquete(new_fd);
             close(new_fd);
             exit(0);
         }
         close(new_fd);  // El proceso padre no lo necesita
     }
 
-	terminar_programa(logger);
+	terminar_programa(logger, &socket_listener);
 return 0;
 }
 
@@ -57,6 +55,35 @@ void get_configuracion(){
 	config_LS.RETARDO = get_campo_config_int(archivo_configuracion, "RETARDO");
 	config_LS.TAMANIO_VALUE = get_campo_config_int(archivo_configuracion, "TAMAÑO_VALUE");
 	config_LS.TIEMPO_DUMP = get_campo_config_int(archivo_configuracion, "TIEMPO_DUMP");
+
+	config_destroy(archivo_configuracion);
 }
 
+void analizar_paquete(un_socket nuevo_socket){
+	t_paquete* paquete_recibido = recibir(nuevo_socket);
+
+	switch(paquete_recibido->codigo_operacion){
+		case cop_handshake:
+			esperar_handshake(nuevo_socket, paquete_recibido);
+			break;
+		case SELECT:
+			printf("hacer SELECT");
+			break;
+		case INSERT:
+			printf("hacer INSERT");
+			break;
+		case CREATE:
+			printf("hacer CREATE");
+			break;
+		case DESCRIBE:
+			printf("hacer DESCRIBE");
+			break;
+		case DROP:
+			printf("hacer DROP");
+			break;
+		default:
+			log_info("Paquete no reconocido");
+	}
+	liberar_paquete(paquete_recibido);
+}
 
