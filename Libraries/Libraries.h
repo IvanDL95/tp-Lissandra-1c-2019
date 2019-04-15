@@ -48,7 +48,11 @@ enum API{
 	INSERT,
 	CREATE,
 	DESCRIBE,
-	DROP
+	DROP,
+	JOURNAL,
+	ADD,
+	RUN,
+	METRICS
 };
 
 typedef int un_socket;
