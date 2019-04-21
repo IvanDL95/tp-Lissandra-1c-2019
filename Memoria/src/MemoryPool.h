@@ -13,10 +13,14 @@
 #define SRC_MEMORYPOOL_H_
 
 #include <Libraries.h>
+#include <API.h>
 #include <commons/log.h>
+#include <pthread.h>
 
 t_log* logger;
 char* pathMemoriaConfig = "MemoriaConfig.cfg";
+
+pthread_t hilo_server,hilo_consola;
 
 typedef struct {
 	char* PUERTO_ESCUCHA;
@@ -34,6 +38,34 @@ typedef struct {
 
 Configuracion_MP config_MP;
 
-int maximo_value;
+un_socket FS = 0;
+t_list* tabla_gossiping;
+int tamanio_value;
+void conectarse_con_FS(un_socket);
+
+
+void inicializar_memoria();
+typedef int* Memoria_principal;
+
+Memoria_principal memoria_principal;
+
+typedef struct{
+	int key;
+	unsigned int timestamp;
+	int value;
+}t_registro;
+
+typedef t_list* tabla_paginas;
+typedef struct{
+	int nro_pagina;
+	t_registro* registro;
+}t_pagina;
+
+t_list* tabla_segmentos;
+typedef struct{
+	int nro_segmento;
+	tabla_paginas tabla;
+}t_segmento;
+
 
 #endif /* SRC_MEMORYPOOL_H_ */
