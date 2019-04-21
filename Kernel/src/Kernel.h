@@ -13,6 +13,7 @@
 #define SRC_KERNEL_H_
 
 #include <Libraries.h>
+#include <API.h>
 #include <commons/log.h>
 
 
@@ -31,9 +32,9 @@ typedef struct {
 
 Configuracion_Kernel config_Kernel;
 
-void iniciar_consola();
+//void iniciar_consola();
 
-command_api convertir_commando(char*);
+//command_api convertir_commando(char*);
 
 #endif /* SRC_KERNEL_H_ */
 
