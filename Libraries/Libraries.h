@@ -35,24 +35,11 @@ enum codigos_de_operacion {
 	cop_generico,
 	codigo_error = -1,
 	cop_ok 		 = 	0,
-	cop_handshake = 1,
-
+	cop_handshake = 99
 
 
 
 	//Crear más tokens
-};
-
-enum API{
-	SELECT,
-	INSERT,
-	CREATE,
-	DESCRIBE,
-	DROP,
-	JOURNAL,
-	ADD,
-	RUN,
-	METRICS
 };
 
 typedef int un_socket;
@@ -84,7 +71,7 @@ void log_error_and_free(t_log* logger, char* mensaje);
  *
  */
 
-void terminar_programa(t_log* logger);
+void terminar_programa(t_log* logger, un_socket*);
 
 /**	@NAME: conectar_a
  * 	@DESC: Intenta conectarse.
@@ -159,7 +146,11 @@ void *get_in_addr(struct sockaddr *sa);
 
 char* obtener_mi_ip();
 
-un_socket levantar_servidor(char* IP, char* PORT);
+void iniciar_servidor(un_socket*);
+
+void* iniciar_consola();
+
+//command_api convertir_commando(char* command);
 
 /* ---------------------------------------------------------------------------
  * -------------------------- CONFIGURACIÓN ----------------------------------
@@ -236,7 +227,7 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*));
  * ---------------------------------------------------------------------------
  */
 
-int size_of_string(char* string);
+size_t size_of_string(char* string);
 
 char* string_concat(int cant_strings, ...);
 

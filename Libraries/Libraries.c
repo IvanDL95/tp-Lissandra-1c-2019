@@ -30,8 +30,8 @@ void print_image(FILE *fptr)
 struct sockaddr_in* _configurar_addrinfo(char *IP, char* Port) {
 	struct sockaddr_in *my_addr = malloc(sizeof(struct sockaddr_in));
     my_addr->sin_family = AF_INET;         // Ordenación de bytes de la máquina
-    my_addr->sin_port = htons(Port);     // short, Ordenación de bytes de la red
-    my_addr->sin_addr.s_addr = IP; // Rellenar con mi dirección IP
+    my_addr->sin_port = htons(*(int*)Port);     // short, Ordenación de bytes de la red
+    my_addr->sin_addr.s_addr = *(int*)IP; // Rellenar con mi dirección IP
     memset(&(my_addr->sin_zero), '\0', 8); // Poner a cero el resto de la estructura
 
 	return my_addr;
@@ -40,18 +40,20 @@ struct sockaddr_in* _configurar_addrinfo(char *IP, char* Port) {
 un_socket conectar_a(char *IP, char* Port) {
 	struct sockaddr_in* serverInfo = _configurar_addrinfo(IP, Port);
 	if (serverInfo == NULL) {
+		error_show("IP o PUERTO inválidos, chequear configuración, error: %d\n", errno);
+		sleep(3);
 		exit(EXIT_FAILURE);
 	}
-	int serverSocket = crear_socket(serverInfo);
 
-	if (connect(serverSocket, (struct sockaddr *)&serverInfo, sizeof(struct sockaddr))
+	int serverSocket = crear_socket(serverInfo);
+	while (connect(serverSocket, (struct sockaddr *)&serverInfo, sizeof(struct sockaddr))
 			== -1) {
 		puts("\n");
 		error_show(
 				"No se pudo conectar con el proceso que hace de servidor, error: %d\n",
 				errno);
 		close(serverSocket);
-		exit(EXIT_FAILURE);
+		int serverSocket = crear_socket(serverInfo);
 	}
 	free(serverInfo);
 	return serverSocket;
@@ -80,7 +82,7 @@ un_socket socket_escucha(char* IP, char* Port) {
 	socketEscucha = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 	bind(socketEscucha, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	*/
-	int socketEscucha, i;
+	int socketEscucha;
 
 	//for(i = 1; i == 5000; i++) {
 		socketEscucha = crear_socket(serverInfo);
@@ -108,7 +110,7 @@ un_socket socket_escucha(char* IP, char* Port) {
 char* obtener_mi_ip(){
 	 struct ifaddrs *ifaddr, *ifa;
 	   int family, s, n;
-	   char host[NI_MAXHOST];
+	   char* host = malloc(NI_MAXHOST);
 
 	   if (getifaddrs(&ifaddr) == -1) {
 		   return NULL;
@@ -263,9 +265,9 @@ char get_campo_config_char(t_config* archivo_configuracion, char* nombre_campo) 
 	if(config_has_property(archivo_configuracion, nombre_campo)){
 		valor = config_get_string_value(archivo_configuracion, nombre_campo);
 		printf("El %s es: %s\n", nombre_campo, valor);
-		return &valor;
+		return *valor;
 	}
-	return NULL;
+	return 0;
 }
 
 int get_campo_config_int(t_config* archivo_configuracion, char* nombre_campo) {
@@ -275,7 +277,7 @@ int get_campo_config_int(t_config* archivo_configuracion, char* nombre_campo) {
 		printf("El %s es: %i\n", nombre_campo, valor);
 		return valor;
 	}
-	return NULL;
+	return -1;
 }
 
 
@@ -465,8 +467,8 @@ void *get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr); //IPv6 en Argentina, lulz
 }
 
-int size_of_string(char* string) {
-	return strlen(string) * sizeof(char) + 1;
+size_t size_of_string(char* string) {
+	return (strlen(string) * sizeof(char)) + 1;
 }
 
 char* string_concat(int cant_strings, ...) {
@@ -530,7 +532,7 @@ void serializar_int(void * buffer, int * desplazamiento, int valor) {
 }
 
 int deserializar_int(void * buffer, int * desplazamiento) {
-	int valor = NULL;
+	int valor;
 	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
 	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
 	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
@@ -559,7 +561,7 @@ void serializar_lista_strings(void * buffer, int * desplazamiento, t_list * list
 	void serializar_valor(char* valor) {
 		serializar_string(buffer, desplazamiento, valor);
 	}
-	list_iterate(lista, serializar_valor);
+	list_iterate(lista, &serializar_valor);
 }
 
 t_list * deserializar_lista_strings(void * buffer, int * desplazamiento) {
@@ -591,7 +593,7 @@ int size_of_list_of_strings_to_serialize(t_list * list) {
 	void agregar_tamanio_string(char* string) {
 		result += size_of_string(string);
 	}
-	list_iterate(list, agregar_tamanio_string);
+	list_iterate(list, &agregar_tamanio_string);
 	return result;
 }
 
@@ -617,7 +619,6 @@ t_list * copy_list(t_list * lista) {
 
 int array_of_strings_length(char** array) {
 	int i = 0;
-	char* item;
 	while(array[i] != NULL) {
 		printf("Item: %s \n", array[i]);
 		i++;
@@ -634,7 +635,7 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*)) {
 }
 
 void terminar_programa(t_log* log_file, un_socket *socket){
-	close(&socket);
+	close(*socket);
 
 	log_info(log_file, "Finaliza el programa");
 	log_destroy(log_file);
