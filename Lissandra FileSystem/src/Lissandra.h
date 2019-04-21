@@ -13,6 +13,7 @@
 #define SRC_LISSANDRA_H_
 
 #include <Libraries.h>
+#include <API.h>
 #include <commons/log.h>
 
 
@@ -20,7 +21,7 @@ t_log* logger;
 char* pathLissandraConfig = "LissandraConfig.cfg";
 
 typedef struct {
-	int PUERTO_ESCUCHA;
+	char* PUERTO_ESCUCHA;
 	char* PUNTO_MONTAJE;
 	int RETARDO;
 	int TAMANIO_VALUE;

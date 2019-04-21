@@ -50,7 +50,7 @@ void get_configuracion(){
 
 	t_config* archivo_configuracion = config_create(pathLissandraConfig);
 
-	config_LS.PUERTO_ESCUCHA = get_campo_config_int(archivo_configuracion, "PUERTO_ESCUCHA");
+	config_LS.PUERTO_ESCUCHA = get_campo_config_string(archivo_configuracion, "PUERTO_ESCUCHA");
 	config_LS.PUNTO_MONTAJE = copy_string(get_campo_config_string(archivo_configuracion, "PUNTO_MONTAJE"));
 	config_LS.RETARDO = get_campo_config_int(archivo_configuracion, "RETARDO");
 	config_LS.TAMANIO_VALUE = get_campo_config_int(archivo_configuracion, "TAMAÑO_VALUE");
@@ -62,10 +62,15 @@ void get_configuracion(){
 void analizar_paquete(un_socket nuevo_socket){
 	t_paquete* paquete_recibido = recibir(nuevo_socket);
 
-	switch(paquete_recibido->codigo_operacion){
-		case cop_handshake:
-			esperar_handshake(nuevo_socket, paquete_recibido);
-			break;
+	if(paquete_recibido->codigo_operacion == cop_handshake)
+		esperar_handshake(nuevo_socket, paquete_recibido);
+	liberar_paquete(paquete_recibido);
+}
+
+
+int ejecutar_API(command_api operacion){
+	switch(operacion){
+
 		case SELECT:
 			printf("hacer SELECT");
 			break;
@@ -82,8 +87,8 @@ void analizar_paquete(un_socket nuevo_socket){
 			printf("hacer DROP");
 			break;
 		default:
-			log_info("Paquete no reconocido");
+			log_info(logger, "Paquete no reconocido\n");
 	}
-	liberar_paquete(paquete_recibido);
+	return 0;
 }
 
