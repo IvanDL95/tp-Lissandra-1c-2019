@@ -26,7 +26,8 @@ int main(void){
 	get_configuracion();
 
 	log_info(logger, "Levantando servidor\n");
-	un_socket socket_listener = socket_escucha(INADDR_ANY,config_LS.PUERTO_ESCUCHA);
+	//TODO uso una IP definida o INADDR_ANY?
+	un_socket socket_listener = socket_escucha(inet_addr("192.168.1.2"),config_LS.PUERTO_ESCUCHA);
 
     log_info(logger, "Estoy escuchando\n");
     while(1) {  // main accept() loop
@@ -50,7 +51,7 @@ void get_configuracion(){
 
 	t_config* archivo_configuracion = config_create(pathLissandraConfig);
 
-	config_LS.PUERTO_ESCUCHA = get_campo_config_string(archivo_configuracion, "PUERTO_ESCUCHA");
+	config_LS.PUERTO_ESCUCHA = get_campo_config_int(archivo_configuracion, "PUERTO_ESCUCHA");
 	config_LS.PUNTO_MONTAJE = copy_string(get_campo_config_string(archivo_configuracion, "PUNTO_MONTAJE"));
 	config_LS.RETARDO = get_campo_config_int(archivo_configuracion, "RETARDO");
 	config_LS.TAMANIO_VALUE = get_campo_config_int(archivo_configuracion, "TAMAÑO_VALUE");

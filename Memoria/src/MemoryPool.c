@@ -55,9 +55,9 @@ void get_configuracion(){
 		return;
 	}
 
-	config_MP.PUERTO_ESCUCHA = get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA");
+	config_MP.PUERTO_ESCUCHA = get_campo_config_int(archivo_configuracion,"PUERTO_ESCUCHA");
 	config_MP.IP_FS = get_campo_config_string(archivo_configuracion, "IP_FS");
-	config_MP.PUERTO_FS = get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA");
+	config_MP.PUERTO_FS = get_campo_config_int(archivo_configuracion,"PUERTO_ESCUCHA");
 	config_MP.IP_SEEDS = get_campo_config_array(archivo_configuracion, "IP_SEEDS");
 	config_MP.PUERTO_SEEDS = get_campo_config_array(archivo_configuracion, "PUERTO_SEEDS");
 	config_MP.RETARDO_MEM = get_campo_config_int(archivo_configuracion,"RETARDO_MEM");
@@ -72,7 +72,8 @@ void get_configuracion(){
 }
 
 void conectarse_con_FS(un_socket socket_FS){
-	FS = conectar_a(config_MP.IP_FS, config_MP.PUERTO_FS);
+	uint32_t IP = inet_addr(config_MP.IP_FS);
+	FS = conectar_a(IP, config_MP.PUERTO_FS);
 	realizar_handshake(socket_FS); //recibir TAMANIO_VALUE
 	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
 	paquete_recibido = recibir(socket_FS);

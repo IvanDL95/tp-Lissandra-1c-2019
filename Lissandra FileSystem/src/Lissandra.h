@@ -21,11 +21,11 @@ t_log* logger;
 char* pathLissandraConfig = "LissandraConfig.cfg";
 
 typedef struct {
-	char* PUERTO_ESCUCHA;
+	uint16_t PUERTO_ESCUCHA;
 	char* PUNTO_MONTAJE;
-	int RETARDO;
-	int TAMANIO_VALUE;
-	int TIEMPO_DUMP;
+	unsigned int RETARDO;
+	unsigned int TAMANIO_VALUE;
+	unsigned int TIEMPO_DUMP;
 } Configuracion_LS;
 
 Configuracion_LS config_LS;

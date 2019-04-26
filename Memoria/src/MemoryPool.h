@@ -23,16 +23,16 @@ char* pathMemoriaConfig = "MemoriaConfig.cfg";
 pthread_t hilo_server,hilo_consola;
 
 typedef struct {
-	char* PUERTO_ESCUCHA;
+	uint16_t PUERTO_ESCUCHA;
 	char* IP_FS;
-	char* PUERTO_FS;
+	uint16_t PUERTO_FS;
 	char** IP_SEEDS;
 	char** PUERTO_SEEDS;
-	int RETARDO_MEM;
-	int RETARDO_FS;
-	int TAM_MEM;
-	int RETARDO_JOURNAL;
-	int RETARDO_GOSSIPING;
+	unsigned int RETARDO_MEM;
+	unsigned int RETARDO_FS;
+	unsigned int TAM_MEM;
+	unsigned int RETARDO_JOURNAL;
+	unsigned int RETARDO_GOSSIPING;
 	int MEMORY_NUMBER;
 } Configuracion_MP;
 

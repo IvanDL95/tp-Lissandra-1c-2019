@@ -79,7 +79,7 @@ void terminar_programa(t_log* logger, un_socket*);
  *
  */
 
-un_socket conectar_a(char *IP, char* Port);
+un_socket conectar_a(uint32_t IP, uint16_t Port);
 
 /**	@NAME: crear_socket
  * 	@DESC: Crea un socket.
@@ -96,7 +96,7 @@ un_socket crear_socket();
  *
  */
 
-un_socket socket_escucha(char* IP, char* Port);
+un_socket socket_escucha(uint32_t IP, uint16_t Port);
 
 /**	@NAME: enviar
  * 	@DESC: Hace el envio de la data que le pasamos. No hay que hacer más nada.

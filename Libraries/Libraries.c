@@ -27,18 +27,19 @@ void print_image(FILE *fptr)
 		printf("%s",read_string);
 }
 
-struct sockaddr_in* _configurar_addrinfo(char *IP, char* Port) {
+struct sockaddr_in* _configurar_addrinfo(uint32_t IP, uint16_t Port) {
 	struct sockaddr_in *my_addr = malloc(sizeof(struct sockaddr_in));
     my_addr->sin_family = AF_INET;         // Ordenación de bytes de la máquina
-    my_addr->sin_port = htons(*(int*)Port);     // short, Ordenación de bytes de la red
-    my_addr->sin_addr.s_addr = *(int*)IP; // Rellenar con mi dirección IP
+    my_addr->sin_port = htons(Port);     // short, Ordenación de bytes de la red
+    my_addr->sin_addr.s_addr = IP; // Rellenar con mi dirección IP
     memset(&(my_addr->sin_zero), '\0', 8); // Poner a cero el resto de la estructura
 
 	return my_addr;
 }
 
-un_socket conectar_a(char *IP, char* Port) {
+un_socket conectar_a(uint32_t IP, uint16_t Port) {
 	struct sockaddr_in* serverInfo = _configurar_addrinfo(IP, Port);
+
 	if (serverInfo == NULL) {
 		error_show("IP o PUERTO inválidos, chequear configuración, error: %d\n", errno);
 		sleep(3);
@@ -53,7 +54,7 @@ un_socket conectar_a(char *IP, char* Port) {
 				"No se pudo conectar con el proceso que hace de servidor, error: %d\n",
 				errno);
 		close(serverSocket);
-		int serverSocket = crear_socket(serverInfo);
+		serverSocket = crear_socket(serverInfo);
 	}
 	free(serverInfo);
 	return serverSocket;
@@ -69,13 +70,12 @@ un_socket crear_socket(){
 	return sockfd;
 }
 
-un_socket socket_escucha(char* IP, char* Port) {
+un_socket socket_escucha(uint32_t IP, uint16_t Port) {
 	struct sockaddr_in* serverInfo = _configurar_addrinfo(IP, Port);
 
 	if (serverInfo == NULL) {
 		exit(EXIT_FAILURE);
 	}
-
 
 
 	/* no descomentar por favor, no hace absoultamente nada útil para este TP
@@ -103,6 +103,8 @@ un_socket socket_escucha(char* IP, char* Port) {
 	//}
 
 	free(serverInfo);
+
+	listen(socketEscucha,10);
 
 	return socketEscucha;
 }
@@ -643,7 +645,7 @@ void terminar_programa(t_log* log_file, un_socket *socket){
 	exit(EXIT_SUCCESS);
 }
 
-un_socket levantar_servidor(char* IP, char* PORT){
+un_socket levantar_servidor(uint32_t IP, uint16_t PORT){
 
 	un_socket socket_listener = socket_escucha(IP, PORT);
     if (listen(socket_listener, 10) == -1) {
