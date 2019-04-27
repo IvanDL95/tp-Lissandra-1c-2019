@@ -12,6 +12,7 @@
 // This code doesn't have a license. Feel free to copy.
 
 #include "../src/Lissandra.h"
+#include <Libraries.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -27,23 +28,24 @@ int main(void){
 
 	log_info(logger, "Levantando servidor\n");
 	//TODO uso una IP definida o INADDR_ANY?
-	un_socket socket_listener = socket_escucha(inet_addr("192.168.1.2"),config_LS.PUERTO_ESCUCHA);
+
+	un_socket socket_servidor = socket_escucha(IP,config_LS.PUERTO_ESCUCHA);
 
     log_info(logger, "Estoy escuchando\n");
+	//un_socket nuevo_cliente;
+
     while(1) {  // main accept() loop
-    	int  new_fd;
-        new_fd = aceptar_conexion(socket_listener);
+        un_socket nuevo_cliente = aceptar_conexion(socket_servidor);
+    	//nuevo_cliente = aceptar_conexion(socket_servidor);
         if (!fork()) { // Este es el proceso hijo
-            close(socket_listener); // El hijo no necesita este descriptor
-            analizar_paquete(new_fd);
-            close(new_fd);
+            close(socket_servidor); // El hijo no necesita este descriptor
+            analizar_paquete(nuevo_cliente);
+            close(nuevo_cliente);
             exit(0);
         }
-        close(new_fd);  // El proceso padre no lo necesita
+        close(nuevo_cliente);  // El proceso padre no lo necesita
     }
-
-	terminar_programa(logger, &socket_listener);
-return 0;
+	terminar_programa(logger, &socket_servidor);
 }
 
 void get_configuracion(){
@@ -51,7 +53,7 @@ void get_configuracion(){
 
 	t_config* archivo_configuracion = config_create(pathLissandraConfig);
 
-	config_LS.PUERTO_ESCUCHA = get_campo_config_int(archivo_configuracion, "PUERTO_ESCUCHA");
+	config_LS.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion, "PUERTO_ESCUCHA"));
 	config_LS.PUNTO_MONTAJE = copy_string(get_campo_config_string(archivo_configuracion, "PUNTO_MONTAJE"));
 	config_LS.RETARDO = get_campo_config_int(archivo_configuracion, "RETARDO");
 	config_LS.TAMANIO_VALUE = get_campo_config_int(archivo_configuracion, "TAMAÑO_VALUE");
@@ -92,4 +94,3 @@ int ejecutar_API(command_api operacion){
 	}
 	return 0;
 }
-

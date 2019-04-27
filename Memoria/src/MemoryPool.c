@@ -18,7 +18,6 @@
 #include <API.h>
 #include <pthread.h>
 
-
 int main(void){
 
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_INFO);
@@ -27,15 +26,15 @@ int main(void){
 	get_configuracion();
 	tabla_gossiping = list_create();
 
-	int socket_FS = crear_socket();
-	conectarse_con_FS(socket_FS);
+	conectarse_con_FS();
+
 	log_info(logger, "Me conecté con Lissandra\n");
 
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
 
 	pthread_create(&hilo_consola, NULL, iniciar_consola, logger);
-	int socket_listener = socket_escucha(INADDR_ANY,config_MP.PUERTO_ESCUCHA);
+	int socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
 	log_info(logger, "Estoy escuchando\n");
 	pthread_create(&hilo_server, NULL, iniciar_servidor, &socket_listener);
 
@@ -55,9 +54,9 @@ void get_configuracion(){
 		return;
 	}
 
-	config_MP.PUERTO_ESCUCHA = get_campo_config_int(archivo_configuracion,"PUERTO_ESCUCHA");
-	config_MP.IP_FS = get_campo_config_string(archivo_configuracion, "IP_FS");
-	config_MP.PUERTO_FS = get_campo_config_int(archivo_configuracion,"PUERTO_ESCUCHA");
+	config_MP.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA"));
+	config_MP.IP_FS = copy_string(get_campo_config_string(archivo_configuracion, "IP_FS"));
+	config_MP.PUERTO_FS = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_FS"));
 	config_MP.IP_SEEDS = get_campo_config_array(archivo_configuracion, "IP_SEEDS");
 	config_MP.PUERTO_SEEDS = get_campo_config_array(archivo_configuracion, "PUERTO_SEEDS");
 	config_MP.RETARDO_MEM = get_campo_config_int(archivo_configuracion,"RETARDO_MEM");
@@ -71,12 +70,11 @@ void get_configuracion(){
 	config_destroy(archivo_configuracion);
 }
 
-void conectarse_con_FS(un_socket socket_FS){
-	uint32_t IP = inet_addr(config_MP.IP_FS);
-	FS = conectar_a(IP, config_MP.PUERTO_FS);
-	realizar_handshake(socket_FS); //recibir TAMANIO_VALUE
+void conectarse_con_FS(){
+	FS = conectar_a(config_MP.IP_FS, config_MP.PUERTO_FS);
+	realizar_handshake(FS); //recibir TAMANIO_VALUE
 	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
-	paquete_recibido = recibir(socket_FS);
+	paquete_recibido = recibir(FS);
 
 	if(paquete_recibido->codigo_operacion == cop_ok){
 		tamanio_value = deserializar_int(paquete_recibido->data, 0);

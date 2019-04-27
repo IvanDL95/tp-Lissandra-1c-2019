@@ -16,12 +16,14 @@
 #include <API.h>
 #include <commons/log.h>
 
+#define IP "127.0.0.1"
+
 
 t_log* logger;
 char* pathLissandraConfig = "LissandraConfig.cfg";
 
 typedef struct {
-	uint16_t PUERTO_ESCUCHA;
+	char* PUERTO_ESCUCHA;
 	char* PUNTO_MONTAJE;
 	unsigned int RETARDO;
 	unsigned int TAMANIO_VALUE;

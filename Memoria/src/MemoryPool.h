@@ -16,6 +16,7 @@
 #include <API.h>
 #include <commons/log.h>
 #include <pthread.h>
+#define IP "127.0.0.1"
 
 t_log* logger;
 char* pathMemoriaConfig = "MemoriaConfig.cfg";
@@ -23,9 +24,9 @@ char* pathMemoriaConfig = "MemoriaConfig.cfg";
 pthread_t hilo_server,hilo_consola;
 
 typedef struct {
-	uint16_t PUERTO_ESCUCHA;
+	char* PUERTO_ESCUCHA;
 	char* IP_FS;
-	uint16_t PUERTO_FS;
+	char* PUERTO_FS;
 	char** IP_SEEDS;
 	char** PUERTO_SEEDS;
 	unsigned int RETARDO_MEM;
@@ -41,7 +42,7 @@ Configuracion_MP config_MP;
 un_socket FS = 0;
 t_list* tabla_gossiping;
 int tamanio_value;
-void conectarse_con_FS(un_socket);
+void conectarse_con_FS();
 
 
 void inicializar_memoria();
