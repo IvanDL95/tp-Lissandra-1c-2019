@@ -62,10 +62,12 @@ Main :
 
 Project : Memoria
 C/C++ Applications : Debug/Memoria
-Build (if required) before launching :
-Build COnfiguration : Debug
+Build (if required) before launching
+
+Build Configuration : Debug
 
 Environment:
+
 LD_LIBRARY_PATH (el path absoluto en donde tengan instaladas las librerias)
 /home/utnso/Documentos/SisOp/tp-2019-1c-La-kernel-de-los-s-bados/Libraries/Debug
 
