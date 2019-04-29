@@ -54,3 +54,6 @@ dkms.conf
 # Logs
 *.log
 *.txt
+
+# Otros
+*.xml
