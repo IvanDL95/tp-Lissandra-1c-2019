@@ -155,11 +155,17 @@ void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
 	memcpy(buffer + sizeof(int), &tamanio, sizeof(int));
 	memcpy(buffer + 2 * sizeof(int), data, tamanio);
 
-
-	send(socket_para_enviar, buffer, tamanio_paquete, MSG_WAITALL);
+	int ok;
+	//TODO testear
+	do{
+		ok = send(socket_para_enviar, buffer, tamanio_paquete, MSG_DONTWAIT);
+	//	if(ok==-1){
+	//		perror("send");
+			break;
+	//	}
+	}while(ok != tamanio_paquete);
 
 	free(buffer);
-
 }
 
 t_paquete* recibir(un_socket socket_para_recibir) {
@@ -193,17 +199,18 @@ t_paquete* recibir(un_socket socket_para_recibir) {
 }
 
 void liberar_paquete(t_paquete * paquete) {
+	paquete->data = NULL;
 	free(paquete->data);
 	free(paquete);
 }
 
 bool realizar_handshake(un_socket socket_del_servidor) {
 
-	char * mensaje = malloc(18);
+	char * mensaje = malloc(21);
 	mensaje = "Inicio autenticacion";
-
 	enviar(socket_del_servidor, cop_handshake, 21, mensaje);
-
+	mensaje = NULL;
+	free(mensaje);
 	t_paquete * resultado_del_handhsake = recibir(socket_del_servidor);
 
 	bool resultado = string_equals_ignore_case(
@@ -230,6 +237,8 @@ bool esperar_handshake(un_socket socket_del_cliente, t_paquete* inicio_del_hands
 		respuesta = "Error";
 		enviar(socket_del_cliente, cop_handshake, 6, respuesta);
 	}
+	respuesta = NULL;
+	free(respuesta);
 	return resultado;
 }
 
