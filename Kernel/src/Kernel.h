@@ -24,13 +24,19 @@ char* pathKernelconfig = "KernelConfig.cfg";
 
 typedef struct {
 	char* IP_MEMORIA;
-	int PUERTO_MEMORIA;
+	char* PUERTO_MEMORIA;
 	int QUANTUM;
 	int MULTIPROCESAMIENTO;
 	int METADATA_REFRESH;
 } Configuracion_Kernel;
 
 Configuracion_Kernel config_Kernel;
+
+un_socket socket_Memoria = 0;
+
+int tamanio_value;
+
+int conectar_con_Memoria();
 
 //void iniciar_consola();
 
