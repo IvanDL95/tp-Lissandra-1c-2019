@@ -52,7 +52,9 @@ void get_configuracion(){
 	return;
 }
 
-int ejecutar_API(command_api operacion){
+/*int ejecutar_API(command_api operacion){*/
+int ejecutar_API(char** comando){
+	command_api operacion = convertir_commando(comando[0]);
 	switch(operacion){
 		case SELECT:
 			printf("\nEjecutando SELECT\n");

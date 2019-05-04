@@ -27,7 +27,7 @@ void* iniciar_consola(t_log* logger) {
 	        	char* argumentos[4];
 	        	for(int i=0;i<4 && comando[i+1] != NULL;i++)
 	        		argumentos[i] = comando[i+1];
-	        	ejecutar_API(convertir_commando(comando[0])/*,argumentos*/);
+	        	ejecutar_API(comando);/*convertir_commando(comando[0],argumentos*/;
 	        	free(comando_consola);
 	        }
 
