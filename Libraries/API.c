@@ -14,6 +14,7 @@ void* iniciar_consola(t_log* logger) {
 		comando_consola = NULL;
 		comando_consola = readline("Kernel_bash:>");
 	        if (strlen(comando_consola)==0 || strcmp(comando_consola,command_quit) == 0) {
+	        	free(comando_consola);
 	        	break;
 	        } else {
 	        	log_info(logger, comando_consola);

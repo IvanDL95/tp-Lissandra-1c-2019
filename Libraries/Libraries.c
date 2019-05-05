@@ -63,7 +63,12 @@ un_socket socket_escucha(char* IP, char* Port) {
         if (socketEscucha == -1)
             continue;
 
+        int option = 1;
+        if(setsockopt(socketEscucha,SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(int)) == -1)
+        	perror("setsockopt");
+
         if (bind(socketEscucha, p->ai_addr, p->ai_addrlen) == -1) {
+        	perror("bind");
             close(socketEscucha);
             continue;
         }
@@ -94,6 +99,8 @@ un_socket aceptar_conexion(un_socket socket_servidor) {
 	un_socket socket_cliente;
 
     socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
+    if(socket_cliente == -1)
+    	perror("Accept");
 
 	return socket_cliente;
 }
@@ -147,7 +154,7 @@ char* obtener_mi_ip(){
 
 void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
 		void * data) {
-
+	//int tamanio = sizeof((char*)data);
 	int tamanio_paquete = 2 * sizeof(int) + tamanio;
 	void * buffer = malloc(tamanio_paquete);
 
@@ -155,11 +162,16 @@ void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
 	memcpy(buffer + sizeof(int), &tamanio, sizeof(int));
 	memcpy(buffer + 2 * sizeof(int), data, tamanio);
 
-
-	send(socket_para_enviar, buffer, tamanio_paquete, MSG_WAITALL);
+	int ok;
+	do{
+		ok = send(socket_para_enviar, buffer, tamanio_paquete, MSG_WAITALL);
+		if(ok == -1){
+			perror("send");
+			break;
+		}
+	}while(tamanio_paquete != ok);
 
 	free(buffer);
-
 }
 
 t_paquete* recibir(un_socket socket_para_recibir) {
@@ -199,10 +211,12 @@ void liberar_paquete(t_paquete * paquete) {
 
 bool realizar_handshake(un_socket socket_del_servidor) {
 
-	char * mensaje = malloc(18);
+	//TODO no me está dejando liberar esta memoria. A veces Valgrind tira "invalid free()" más abajo.
+	char * mensaje = malloc(21);
 	mensaje = "Inicio autenticacion";
-
 	enviar(socket_del_servidor, cop_handshake, 21, mensaje);
+	mensaje = NULL;
+	free(mensaje);
 
 	t_paquete * resultado_del_handhsake = recibir(socket_del_servidor);
 
@@ -212,7 +226,6 @@ bool realizar_handshake(un_socket socket_del_servidor) {
 	liberar_paquete(resultado_del_handhsake);
 
 	return resultado;
-
 }
 
 bool esperar_handshake(un_socket socket_del_cliente, t_paquete* inicio_del_handshake) {
@@ -230,6 +243,8 @@ bool esperar_handshake(un_socket socket_del_cliente, t_paquete* inicio_del_hands
 		respuesta = "Error";
 		enviar(socket_del_cliente, cop_handshake, 6, respuesta);
 	}
+	respuesta = NULL;
+	free(respuesta);
 	return resultado;
 }
 
@@ -499,33 +514,41 @@ t_list * recibir_listado_de_strings(un_socket socket) {
 }
 
 void serializar_int(void * buffer, int * desplazamiento, int valor) {
-	memcpy(buffer + *desplazamiento, &valor, sizeof(int));
-	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
-	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
+	if(desplazamiento != NULL){
+		buffer = buffer + *desplazamiento;
+		*desplazamiento = *desplazamiento + sizeof(int);
+	}
+	memcpy(buffer, &valor, sizeof(int));
 }
 
 int deserializar_int(void * buffer, int * desplazamiento) {
-	int valor;
-	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
-	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
-	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
-	return valor;
+	if(desplazamiento != NULL){
+		buffer = buffer + *desplazamiento;
+		*desplazamiento = *desplazamiento + sizeof(int);
+	}
+	int *valor = malloc(sizeof(int));
+	memcpy(valor, buffer, sizeof(int));
+	return *valor;
 }
 
 void serializar_string(void * buffer, int * desplazamiento, char* valor) {
 	int tamanio_valor = size_of_string(valor);
 	serializar_int(buffer, desplazamiento, tamanio_valor);
-	memcpy(buffer + *desplazamiento, valor, tamanio_valor);
-	int nuevo_desplazamiento = *desplazamiento + tamanio_valor;
-	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
+	if(desplazamiento != NULL){
+		buffer = buffer + *desplazamiento;
+		*desplazamiento = *desplazamiento + sizeof(int);
+	}
+	memcpy(buffer, valor, tamanio_valor);
 }
 
 char* deserializar_string(void * buffer, int * desplazamiento) {
 	int tamanio_valor = deserializar_int(buffer, desplazamiento);
+	if(desplazamiento != NULL){
+		buffer = buffer + *desplazamiento;
+		*desplazamiento = *desplazamiento + sizeof(int);
+	}
 	char* valor = malloc(tamanio_valor);
-	memcpy(valor, buffer + *desplazamiento, tamanio_valor);
-	int nuevo_desplazamiento = *desplazamiento + tamanio_valor;
-	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
+	memcpy(valor, buffer, tamanio_valor);
 	return valor;
 }
 

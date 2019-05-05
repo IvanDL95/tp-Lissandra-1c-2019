@@ -33,6 +33,7 @@ int main(void){
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
 
+	//TODO Error en retorno de pthread. Revisar.
 	pthread_create(&hilo_consola, NULL, iniciar_consola, logger);
 	int socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
 	log_info(logger, "Estoy escuchando\n");
@@ -82,7 +83,7 @@ void conectarse_con_FS(){
 	liberar_paquete(paquete_recibido);
 }
 
-void analizar_paquete(un_socket nuevo_socket){
+void administrar_conexion(un_socket nuevo_socket){
 	t_paquete* paquete_recibido = recibir(nuevo_socket);
 	if(paquete_recibido->codigo_operacion == cop_handshake){
 		esperar_handshake(nuevo_socket, paquete_recibido);
@@ -134,16 +135,17 @@ void inicializar_memoria(){
 	tabla_segmentos = list_create();
 }
 
-void iniciar_servidor(un_socket *socket_listener){
-    while(1) {  // main accept() loop
+void* iniciar_servidor(un_socket *socket_listener){
+    //while(1) {  // main accept() loop
     	int  new_fd;
         new_fd = aceptar_conexion(*socket_listener);
-        if (!fork()) { // Este es el proceso hijo
-            close(*socket_listener); // El hijo no necesita este descriptor
-            //analizar_paquete(new_fd);
-            close(new_fd);
-            exit(0);
-        }
+        //if (!fork()) { // Este es el proceso hijo
+        //    close(*socket_listener); // El hijo no necesita este descriptor
+        administrar_conexion(new_fd);
+        //    close(new_fd);
+        //    exit(0);
+        //}
         close(new_fd);  // El proceso padre no lo necesita
-    }
+    //}
+        return NULL;
 }
