@@ -38,6 +38,8 @@ int tamanio_value;
 
 int conectar_con_Memoria();
 
+void mostrarMetricas();
+
 //void iniciar_consola();
 
 //command_api convertir_commando(char*);

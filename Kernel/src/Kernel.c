@@ -59,6 +59,7 @@ int ejecutar_API(char** comando){
 	switch(operacion){
 		case SELECT:
 			printf("\nEjecutando SELECT\n");
+
 			break;
 		case INSERT:
 			printf("\nEjecutando INSERT\n");
@@ -83,6 +84,7 @@ int ejecutar_API(char** comando){
 			break;
 		case METRICS:
 			printf("\nEjecutando METRICS\n");
+			mostrarMetricas();
 			break;
 		default:
 			printf("\nComando no reconocido\n\n");
@@ -101,9 +103,9 @@ int conectar_con_Memoria(){
 	}
 
 	if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
-		printf("\nHandshake con Memoria realizado\n");
+		log_info(logger,"Handshake con Memoria : Realizado");
 	else
-		printf("\nNo se realizó Handshake con Memoria \n");
+		log_error(logger, "Handshake con Memoria : No Realizado");
 	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
 	paquete_recibido = recibir(socket_Memoria);
 
@@ -114,4 +116,17 @@ int conectar_con_Memoria(){
 	return 0;
 }
 
-
+void mostrarMetricas() {
+	printf("////////////////////////////////////////////////////////\n\t\tMetricas\n\n");
+	printf("Read Latency / 30s : \n");
+	//printf("%.2f \n\n",readLatency);
+	printf("Write Latency / 30s : \n");
+	//printf("%.2f \n\n",writeLatency);
+	printf("Reads / 30s : \n");
+	//printf("%d \n\n",cantReads);
+	printf("Writes / 30s : \n");
+	//printf("%d \n\n",cantWrites);
+	printf("Memory Load : \n");
+	//printf("%d \n\n",memoryLoad);
+	printf("////////////////////////////////////////////////////////\n");
+}
