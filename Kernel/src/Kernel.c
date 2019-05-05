@@ -91,27 +91,27 @@ int ejecutar_API(char** comando){
 }
 
 int conectar_con_Memoria(){
-        socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
+	socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
 
-        if(socket_Memoria != -1){
-        	log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
-        }else{
-            log_error(logger, "No se pudo conectar a la Memoria.\n");
-            return -1;
-        }
+	if(socket_Memoria != -1){
+		log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
+	}else{
+		log_error(logger, "No se pudo conectar a la Memoria.\n");
+		return -1;
+	}
 
-        if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
-            printf("\nHandshake con Memoria realizado\n");
-        else
-            printf("\nNo se realizó Handshake con Memoria \n");
-        t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
-        paquete_recibido = recibir(socket_Memoria);
+	if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
+		printf("\nHandshake con Memoria realizado\n");
+	else
+		printf("\nNo se realizó Handshake con Memoria \n");
+	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
+	paquete_recibido = recibir(socket_Memoria);
 
-		if(paquete_recibido->codigo_operacion == cop_ok){
-				tamanio_value = deserializar_int(paquete_recibido->data, 0);
-		}
-		liberar_paquete(paquete_recibido);
-		return 0;
+	if(paquete_recibido->codigo_operacion == cop_ok){
+			tamanio_value = deserializar_int(paquete_recibido->data, 0);
+	}
+	liberar_paquete(paquete_recibido);
+	return 0;
 }
 
 
