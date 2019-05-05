@@ -117,16 +117,17 @@ int conectar_con_Memoria(){
 }
 
 void mostrarMetricas() {
-	printf("////////////////////////////////////////////////////////\n\t\tMetricas\n\n");
-	printf("Read Latency / 30s : \n");
+	printf("\x1b[32m////////////////////////////////////////////////////////\n\t\t\tMetricas\x1b[0m\n");
+	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
+	printf("\x1b[33mRead Latency / 30s :\x1b[0m \n");
 	//printf("%.2f \n\n",readLatency);
-	printf("Write Latency / 30s : \n");
+	printf("\x1b[33mWrite Latency / 30s :\x1b[0m \n");
 	//printf("%.2f \n\n",writeLatency);
-	printf("Reads / 30s : \n");
+	printf("\x1b[33mReads / 30s :\x1b[0m \n");
 	//printf("%d \n\n",cantReads);
-	printf("Writes / 30s : \n");
+	printf("\x1b[33mWrites / 30s :\x1b[0m \n");
 	//printf("%d \n\n",cantWrites);
-	printf("Memory Load : \n");
+	printf("\x1b[33mMemory Load :\x1b[0m \n");
 	//printf("%d \n\n",memoryLoad);
-	printf("////////////////////////////////////////////////////////\n");
+	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
 }
