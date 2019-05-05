@@ -25,6 +25,8 @@ int main(void){
 
 	get_configuracion();
 
+	if (conectar_con_Memoria() == -1) return -1;
+
 	iniciar_consola(logger); //Moví la estructura de consola a otro archivo, testeado y funciona
 
 
@@ -41,7 +43,7 @@ void get_configuracion(){
 		return;
 	} else {
 		config_Kernel.IP_MEMORIA = copy_string(get_campo_config_string(archivo_configuracion, "IP_MEMORIA"));
-		config_Kernel.PUERTO_MEMORIA = get_campo_config_int(archivo_configuracion, "PUERTO_MEMORIA");
+		config_Kernel.PUERTO_MEMORIA = copy_string(get_campo_config_string(archivo_configuracion, "PUERTO_MEMORIA"));
 		config_Kernel.QUANTUM = get_campo_config_int(archivo_configuracion, "QUANTUM");
 		config_Kernel.MULTIPROCESAMIENTO = get_campo_config_int(archivo_configuracion, "MULTIPROCESAMIENTO");
 		config_Kernel.METADATA_REFRESH = get_campo_config_int(archivo_configuracion, "METADATA_REFRESH");
@@ -52,7 +54,6 @@ void get_configuracion(){
 	return;
 }
 
-/*int ejecutar_API(command_api operacion){*/
 int ejecutar_API(char** comando){
 	command_api operacion = convertir_commando(comando[0]);
 	switch(operacion){
@@ -88,3 +89,29 @@ int ejecutar_API(char** comando){
 	}
 	return 0;
 }
+
+int conectar_con_Memoria(){
+        socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
+
+        if(socket_Memoria != -1){
+        	log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
+        }else{
+            log_error(logger, "No se pudo conectar a la Memoria.\n");
+            return -1;
+        }
+
+        if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
+            printf("\nHandshake con Memoria realizado\n");
+        else
+            printf("\nNo se realizó Handshake con Memoria \n");
+        t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
+        paquete_recibido = recibir(socket_Memoria);
+
+		if(paquete_recibido->codigo_operacion == cop_ok){
+				tamanio_value = deserializar_int(paquete_recibido->data, 0);
+		}
+		liberar_paquete(paquete_recibido);
+		return 0;
+}
+
+
