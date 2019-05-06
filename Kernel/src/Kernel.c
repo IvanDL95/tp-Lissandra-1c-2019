@@ -54,11 +54,16 @@ void get_configuracion(){
 	return;
 }
 
-int ejecutar_API(char** comando){
-	command_api operacion = convertir_commando(comando[0]);
+int ejecutar_API(command_api operacion, char** argumentos){
 	switch(operacion){
 		case SELECT:
-			printf("\nEjecutando SELECT\n");
+			log_info(logger, "Enviando comando Select a la Memoria\n");
+			//Envío argumentos Select a la Memoria
+			//strtok(comando, " ");
+			printf("\nArgumentos a enviar : %s, %s \n", argumentos[0], argumentos[1]);
+			//printf("\nTamaño Argumento 1 : %d \n", strlen(argumentos));
+
+			//enviar(socket_Memoria, SELECT, strlen(argumento[1])+1, argumento[1]);
 
 			break;
 		case INSERT:
