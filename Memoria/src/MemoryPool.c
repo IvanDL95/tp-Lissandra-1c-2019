@@ -100,11 +100,11 @@ void analizar_paquete(un_socket nuevo_socket){
 		liberar_paquete(paquete_recibido);
 		return;
 	}else
-		ejecutar_API(paquete_recibido->codigo_operacion/*, paquete_recibido->data*/);
+		//ejecutar_API(paquete_recibido->codigo_operacion/*, paquete_recibido->data*/);
 	liberar_paquete(paquete_recibido);
 }
 
-int ejecutar_API(command_api operacion/*, char** argumentos */){
+int ejecutar_API(command_api operacion, char** argumentos){
 	log_debug(logger, "Ejecutando la API\n");
 	switch(operacion){
 		case SELECT:
