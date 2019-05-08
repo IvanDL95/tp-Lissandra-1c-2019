@@ -32,6 +32,12 @@ typedef struct {
 
 Configuracion_Kernel config_Kernel;
 
+un_socket socket_Memoria = 0;
+
+int tamanio_value;
+
+int conectar_con_Memoria();
+
 //void iniciar_consola();
 
 //command_api convertir_commando(char*);

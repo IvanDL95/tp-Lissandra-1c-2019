@@ -163,13 +163,15 @@ void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
 	memcpy(buffer + 2 * sizeof(int), data, tamanio);
 
 	int ok;
+
+	//TODO testear
 	do{
-		ok = send(socket_para_enviar, buffer, tamanio_paquete, MSG_WAITALL);
-		if(ok == -1){
-			perror("send");
+		ok = send(socket_para_enviar, buffer, tamanio_paquete, MSG_DONTWAIT);
+	//	if(ok==-1){
+	//		perror("send");
 			break;
-		}
-	}while(tamanio_paquete != ok);
+	//	}
+	}while(ok != tamanio_paquete);
 
 	free(buffer);
 }
@@ -205,6 +207,7 @@ t_paquete* recibir(un_socket socket_para_recibir) {
 }
 
 void liberar_paquete(t_paquete * paquete) {
+	paquete->data = NULL;
 	free(paquete->data);
 	free(paquete);
 }
@@ -219,7 +222,6 @@ bool realizar_handshake(un_socket socket_del_servidor) {
 	free(mensaje);
 
 	t_paquete * resultado_del_handhsake = recibir(socket_del_servidor);
-
 	bool resultado = string_equals_ignore_case(
 			(char *) resultado_del_handhsake->data, "Autenticado");
 
@@ -560,14 +562,20 @@ void serializar_lista_strings(void * buffer, int * desplazamiento, t_list * list
 	list_iterate(lista, &serializar_valor);
 }
 
-t_list * deserializar_lista_strings(void * buffer, int * desplazamiento) {
+t_list * deserializar_lista_strings(void * buffer, int * desplazamiento_x) {
 	t_list * resultado = list_create();
-	int tamanio_lista = deserializar_int(buffer, desplazamiento);
+	int desplazamiento = 0;
+	if(desplazamiento_x != NULL)
+		desplazamiento = *desplazamiento_x;
+
+	int tamanio_lista = deserializar_int(buffer, &desplazamiento);
 	int i;
 	for(i = 0; i < tamanio_lista; i++) {
-		char* valor = deserializar_string(buffer, desplazamiento);
+		char* valor = deserializar_string(buffer, &desplazamiento);
 		list_add(resultado, valor);
 	}
+	if(desplazamiento_x != NULL)
+		desplazamiento_x = &desplazamiento;
 	return resultado;
 }
 
