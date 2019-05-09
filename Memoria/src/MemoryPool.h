@@ -38,10 +38,10 @@ typedef struct {
 Configuracion_MP config_MP;
 
 pthread_t hilo_server,hilo_consola;
-un_socket FS = 0;
+un_socket socket_FS = 0;
 t_list* tabla_gossiping;
 int tamanio_value;
-void conectarse_con_FS();
+int conectarse_con_FS();
 
 enum bit_modificado{
 	NO_MODIFICADO,
