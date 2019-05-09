@@ -71,7 +71,7 @@ void analizar_paquete(un_socket nuevo_socket){
 }
 
 
-int ejecutar_API(command_api operacion){
+int ejecutar_API(command_api operacion, char** argumentos){
 	switch(operacion){
 
 		case SELECT:

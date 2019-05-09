@@ -30,9 +30,11 @@ int main(void){
 			break;
 		case -1:
 			log_error(logger,"Handshake fallido");
+			exit(EXIT_FAILURE);
 			break;
 		case 1:
 			log_error(logger, "Tamaño del Value no recibido");
+			exit(EXIT_FAILURE);
 			break;
 	}
 
@@ -43,10 +45,10 @@ int main(void){
 	log_debug(logger, "Tabla de gossiping inicializada\n");
 
 	//TODO Error en retorno de pthread. Revisar.
-	pthread_create(&hilo_consola, NULL, iniciar_consola, logger);
+	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
 	int socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
 	log_debug(logger, "Estoy escuchando\n");
-	pthread_create(&hilo_server, NULL, iniciar_servidor, &socket_listener);
+	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor, &socket_listener);
 
 	pthread_join(hilo_consola, NULL);
 	pthread_join(hilo_server, NULL);
@@ -112,22 +114,22 @@ void administrar_conexion(un_socket nuevo_socket){
 		return;
 	}else{
 		command_api comando = paquete_recibido->codigo_operacion;
-		t_list* argumentos = deserializar_lista_strings(paquete_recibido->data,0);
-		char* argumento = list_get(argumentos,0);
-   	  	for(int i=1;i<5 && argumento != NULL;i++){
-   			comando[i] = argumento;
-   			argumento = list_get(argumentos,i);
+		/* envio argumentos como lista de strings */
+		t_list* lista_argumentos = deserializar_lista_strings(paquete_recibido->data,0);
+		int tamanio_lista = list_size(lista_argumentos);
+		char* argumentos[tamanio_lista];
+   	  	for(int i=0;i<tamanio_lista;i++){
+   	  		argumentos[i] = list_get(lista_argumentos,i);
    	  	}
-   	  	list_destroy(argumentos);
-		ejecutar_API(comando, argumentos/*, paquete_recibido->data*/);
+   	  	list_destroy(lista_argumentos);
+		ejecutar_API(comando, argumentos);
+		free(argumentos);
 	}
 	liberar_paquete(paquete_recibido);
 }
 
-int ejecutar_API(command_api operacion, char** argumentos /*command_api operacion, char** argumentos */){
+int ejecutar_API(command_api operacion, char** argumentos){
 	log_debug(logger, "Ejecutando la API\n");
-	command_api operation //= convertir_commando(comando[0])
-			;
 	switch(operacion){
 		case SELECT:
 			log_debug(logger, "SELECT %s %s\n", argumentos[0], argumentos[1]);
@@ -171,7 +173,7 @@ void inicializar_memoria(){
 	list_add(tabla_segmentos,segmento_0);
 }
 
-void* iniciar_servidor(un_socket *socket_listener){
+void iniciar_servidor(un_socket *socket_listener){
     //while(1) {  // main accept() loop
     	int  new_fd;
         new_fd = aceptar_conexion(*socket_listener);
@@ -184,7 +186,6 @@ void* iniciar_servidor(un_socket *socket_listener){
         //}
         close(new_fd);  // El proceso padre no lo necesita
     //}
-        return NULL;
 }
 
 t_list* iniciar_gossiping(){
@@ -204,7 +205,8 @@ t_list* iniciar_gossiping(){
 		memoria[i].Puerto = copy_string((config_MP.PUERTO_SEEDS)[i]);
 		memoria[i].dir_IP = copy_string((config_MP.IP_SEEDS)[i]);
 		memoria[i].conexion = NULL;
-		if(memoria[i].Puerto == "0" || memoria[i].dir_IP  == "0")
+
+		if(string_equals_ignore_case(memoria[i].Puerto,"0") || string_equals_ignore_case(memoria[i].dir_IP,"0") || memoria[cantidad_seeds+1].dir_IP != NULL)
 			log_error(logger, "Distinta cantidad de Puertos e IPs, revisar config\n");
 		log_debug(logger,"Memoria: %d, Puerto: %s, IP: %s \n", memoria[i].numero_memoria, memoria[i].Puerto, memoria[i].dir_IP);
 		list_add(lista_inicial,&(memoria[i]));

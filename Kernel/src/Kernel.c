@@ -61,7 +61,14 @@ int ejecutar_API(command_api operacion, char** argumentos){
 	//command_api operacion = convertir_commando(comando[0]);
 	switch(operacion){
 		case SELECT:
-			printf("\nEjecutando SELECT\n");
+			log_info(logger, "Enviando comando Select a la Memoria\n");
+			//Envío argumentos Select a la Memoria
+			//strtok(comando, " ");
+			printf("\nArgumentos a enviar : %s, %s \n", argumentos[0], argumentos[1]);
+			//printf("\nTamaño Argumento 1 : %d \n", strlen(argumentos));
+
+			//enviar(socket_Memoria, SELECT, strlen(argumento[1])+1, argumento[1]);
+
 			break;
 		case INSERT:
 			printf("\nEjecutando INSERT\n");
@@ -86,6 +93,7 @@ int ejecutar_API(command_api operacion, char** argumentos){
 			break;
 		case METRICS:
 			printf("\nEjecutando METRICS\n");
+			mostrarMetricas();
 			break;
 		default:
 			printf("\nComando no reconocido\n\n");
@@ -94,27 +102,41 @@ int ejecutar_API(command_api operacion, char** argumentos){
 }
 
 int conectar_con_Memoria(){
-        socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
+	socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
 
-        if(socket_Memoria != -1){
-        	log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
-        }else{
-            log_error(logger, "No se pudo conectar a la Memoria.\n");
-            return -1;
-        }
+	if(socket_Memoria != -1){
+		log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
+	}else{
+		log_error(logger, "No se pudo conectar a la Memoria.\n");
+		return -1;
+	}
 
-        if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
-            printf("\nHandshake con Memoria realizado\n");
-        else
-            printf("\nNo se realizó Handshake con Memoria \n");
-        t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
-        paquete_recibido = recibir(socket_Memoria);
+	if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
+		log_info(logger,"Handshake con Memoria : Realizado");
+	else
+		log_error(logger, "Handshake con Memoria : No Realizado");
+	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
+	paquete_recibido = recibir(socket_Memoria);
 
-		if(paquete_recibido->codigo_operacion == cop_ok){
-				tamanio_value = deserializar_int(paquete_recibido->data, 0);
-		}
-		liberar_paquete(paquete_recibido);
-		return 0;
+	if(paquete_recibido->codigo_operacion == cop_ok){
+			tamanio_value = deserializar_int(paquete_recibido->data, 0);
+	}
+	liberar_paquete(paquete_recibido);
+	return 0;
 }
 
-
+void mostrarMetricas() {
+	printf("\x1b[32m////////////////////////////////////////////////////////\n\t\t\tMetricas\x1b[0m\n");
+	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
+	printf("\x1b[33mRead Latency / 30s :\x1b[0m \n");
+	//printf("%.2f \n\n",readLatency);
+	printf("\x1b[33mWrite Latency / 30s :\x1b[0m \n");
+	//printf("%.2f \n\n",writeLatency);
+	printf("\x1b[33mReads / 30s :\x1b[0m \n");
+	//printf("%d \n\n",cantReads);
+	printf("\x1b[33mWrites / 30s :\x1b[0m \n");
+	//printf("%d \n\n",cantWrites);
+	printf("\x1b[33mMemory Load :\x1b[0m \n");
+	//printf("%d \n\n",memoryLoad);
+	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
+}

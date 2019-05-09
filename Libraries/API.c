@@ -19,16 +19,17 @@ void* iniciar_consola(t_log* logger) {
 	        } else {
 	        	log_info(logger, comando_consola);
 	        	j=0;
-	        	comando[j] = strtok(comando_consola, " ");
-	        	while(comando[j] != NULL && j < 5) {
-	        		//printf("\n%s", comando[j]);
-	        		j++;
-	        		comando[j] = strtok(NULL, " ");
-	        	}
+				comando[j] = strtok(comando_consola, " ");
+				while(comando[j] != NULL && j < 5) {
+					//printf("\n%s", comando[j]);
+					j++;
+					comando[j] = strtok(NULL, " ");
+				}
 	        	char* argumentos[4];
 	        	for(int i=0;i<4 && comando[i+1] != NULL;i++)
 	        		argumentos[i] = comando[i+1];
-	        	ejecutar_API(comando);/*convertir_commando(comando[0],argumentos*/;
+	        	command_api operacion = convertir_commando(comando[0]);
+	        	ejecutar_API(operacion, argumentos);
 	        	free(comando_consola);
 	        }
 
