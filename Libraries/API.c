@@ -1,7 +1,7 @@
 #include "API.h"
 
 
-void* iniciar_consola(t_log* logger) {
+void iniciar_consola(t_log* logger) {
 
 	log_info(logger, "Iniciando Consola\n"); //Me tiene que importar si se desincroniza el log? No creo que importe
 
@@ -28,13 +28,13 @@ void* iniciar_consola(t_log* logger) {
 	        	char* argumentos[4];
 	        	for(int i=0;i<4 && comando[i+1] != NULL;i++)
 	        		argumentos[i] = comando[i+1];
+	        	string_to_upper(comando[0]);
 	        	command_api operacion = convertir_commando(comando[0]);
 	        	ejecutar_API(operacion, argumentos);
 	        	free(comando_consola);
 	        }
 
 	    }
-	return NULL;
 }
 
 command_api convertir_commando(char* command) {

@@ -14,6 +14,7 @@
 #include <readline/readline.h>
 #include <commons/log.h>
 #include <commons/error.h>
+#include <commons/string.h>
 #include <pthread.h>
 
 enum API{
@@ -32,7 +33,7 @@ typedef enum API command_api;
 
 int ejecutar_API(command_api, char**);
 
-void* iniciar_consola(t_log*);
+void iniciar_consola(t_log*);
 
 command_api convertir_commando(char* command);
 
