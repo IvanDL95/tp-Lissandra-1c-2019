@@ -138,6 +138,7 @@ void *get_in_addr(struct sockaddr *sa);
 
 char* obtener_mi_ip();
 
+void iniciar_servidor(un_socket*);
 
 //command_api convertir_commando(char* command);
 
