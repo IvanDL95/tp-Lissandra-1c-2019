@@ -19,7 +19,6 @@
 #define IP "127.0.0.1"
 
 t_log* logger;
-char* pathMemoriaConfig = "MemoriaConfig.cfg";
 
 typedef struct {
 	char* PUERTO_ESCUCHA;

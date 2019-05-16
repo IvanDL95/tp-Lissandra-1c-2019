@@ -18,12 +18,13 @@
 #include <API.h>
 #include <pthread.h>
 
-int main(void){
+int main(int argc, char** argv){
+
 
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_DEBUG);
 	log_info(logger, "Iniciando Memoria\n");
 
-	get_configuracion();
+	get_configuracion(argv[1]);
 
 	switch(conectarse_con_FS()){
 		case cop_ok:
@@ -56,10 +57,10 @@ int main(void){
 	terminar_programa(logger, &socket_listener);
 }
 
-void get_configuracion(){
+void get_configuracion(char* ruta){
 	log_info(logger, "Leyendo archivo de configuracion del proceso Memoria\n");
 
-	t_config* archivo_configuracion = config_create(pathMemoriaConfig);
+	t_config* archivo_configuracion = config_create(ruta);
 
 	if (archivo_configuracion == NULL) {
 		log_error(logger, "Error al abrir Archivo de Configuracion\n");

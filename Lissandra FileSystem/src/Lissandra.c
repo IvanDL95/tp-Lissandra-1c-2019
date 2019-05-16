@@ -19,26 +19,12 @@
 
 
 
-int main(void){
+int main(int argc, char** argv){
 
 	logger = log_create("lissandra.log", "Lissandra", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando File System\n");
 
-	get_configuracion();
-
-	switch(conectarse_con_Memoria()){
-		case cop_ok:
-			break;
-		case -1:
-			log_error(logger,"Handshake fallido");
-			exit(EXIT_FAILURE);
-			break;
-		case 1:
-			log_error(logger, "Tamaño del Value no recibido");
-			exit(EXIT_FAILURE);
-			break;
-	}
-
+	get_configuracion(argv[1]);
 
 	log_info(logger, "Levantando servidor\n");
 	//TODO uso una IP definida o INADDR_ANY?
@@ -62,10 +48,10 @@ int main(void){
 	terminar_programa(logger, &socket_servidor);
 }
 
-void get_configuracion(){
+void get_configuracion(char* ruta){
 	log_info(logger, "Levantando archivo de configuracion del proceso Lissandra\n");
 
-	t_config* archivo_configuracion = config_create(pathLissandraConfig);
+	t_config* archivo_configuracion = config_create(ruta);
 
 	config_LS.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion, "PUERTO_ESCUCHA"));
 	config_LS.IP_MEM = copy_string(get_campo_config_string(archivo_configuracion, "IP_MEM"));

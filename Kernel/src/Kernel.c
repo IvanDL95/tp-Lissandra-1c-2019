@@ -18,13 +18,13 @@
 
 
 
-int main(void){
+int main(int argc, char** argv){
 
 	logger = log_create("kernel.log", "Kernel", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando Kernel\n");
 
 
-	get_configuracion();
+	get_configuracion(argv[1]);
 
 
 	if (conectar_con_Memoria() == -1) return -1;
@@ -36,10 +36,10 @@ int main(void){
 	terminar_programa(logger,NULL);
 }
 
-void get_configuracion(){
+void get_configuracion(char* ruta){
 	log_info(logger, "Levantando archivo de configuracion del proceso Kernel\n");
 
-	t_config* archivo_configuracion = config_create(pathKernelconfig);
+	t_config* archivo_configuracion = config_create(ruta);
 
 	if (archivo_configuracion == NULL) {
 		log_info(logger, "Error al abrir Archivos de Configuracion");
