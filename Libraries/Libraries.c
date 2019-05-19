@@ -523,34 +523,59 @@ void serializar_int(void * buffer, int * desplazamiento, int valor) {
 	memcpy(buffer, &valor, sizeof(int));
 }
 
+//int deserializar_int(void * buffer, int * desplazamiento) {
+//	if(desplazamiento != NULL){
+//		buffer = buffer + *desplazamiento;
+//		*desplazamiento = *desplazamiento + sizeof(int);
+//	}
+//	int *valor = malloc(sizeof(int));
+//	memcpy(valor, buffer, sizeof(int));
+//	return *valor;
+//}
+
 int deserializar_int(void * buffer, int * desplazamiento) {
-	if(desplazamiento != NULL){
-		buffer = buffer + *desplazamiento;
-		*desplazamiento = *desplazamiento + sizeof(int);
-	}
-	int *valor = malloc(sizeof(int));
-	memcpy(valor, buffer, sizeof(int));
-	return *valor;
+	int valor = NULL;
+	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
+	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
+	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
+	return valor;
 }
+
+//void serializar_string(void * buffer, int * desplazamiento, char* valor) {
+//	int tamanio_valor = size_of_string(valor);
+//	serializar_int(buffer, desplazamiento, tamanio_valor);
+//	if(desplazamiento != NULL){
+//		buffer = buffer + *desplazamiento;
+//		*desplazamiento = *desplazamiento + sizeof(int);
+//	}
+//	memcpy(buffer, valor, tamanio_valor);
+//}
 
 void serializar_string(void * buffer, int * desplazamiento, char* valor) {
 	int tamanio_valor = size_of_string(valor);
 	serializar_int(buffer, desplazamiento, tamanio_valor);
-	if(desplazamiento != NULL){
-		buffer = buffer + *desplazamiento;
-		*desplazamiento = *desplazamiento + sizeof(int);
-	}
-	memcpy(buffer, valor, tamanio_valor);
+	memcpy(buffer + *desplazamiento, valor, tamanio_valor);
+	int nuevo_desplazamiento = *desplazamiento + tamanio_valor;
+	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
 }
+
+//char* deserializar_string(void * buffer, int * desplazamiento) {
+//	int tamanio_valor = deserializar_int(buffer, desplazamiento);
+//	if(desplazamiento != NULL){
+//		buffer = buffer + *desplazamiento;
+//		*desplazamiento = *desplazamiento + sizeof(int);
+//	}
+//	char* valor = malloc(tamanio_valor);
+//	memcpy(valor, buffer, tamanio_valor);
+//	return valor;
+//}
 
 char* deserializar_string(void * buffer, int * desplazamiento) {
 	int tamanio_valor = deserializar_int(buffer, desplazamiento);
-	if(desplazamiento != NULL){
-		buffer = buffer + *desplazamiento;
-		*desplazamiento = *desplazamiento + sizeof(int);
-	}
 	char* valor = malloc(tamanio_valor);
-	memcpy(valor, buffer, tamanio_valor);
+	memcpy(valor, buffer + *desplazamiento, tamanio_valor);
+	int nuevo_desplazamiento = *desplazamiento + tamanio_valor;
+	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
 	return valor;
 }
 
@@ -559,23 +584,33 @@ void serializar_lista_strings(void * buffer, int * desplazamiento, t_list * list
 	void serializar_valor(char* valor) {
 		serializar_string(buffer, desplazamiento, valor);
 	}
-	list_iterate(lista, &serializar_valor);
+	list_iterate(lista, serializar_valor);
 }
 
-t_list * deserializar_lista_strings(void * buffer, int * desplazamiento_x) {
-	t_list * resultado = list_create();
-	int desplazamiento = 0;
-	if(desplazamiento_x != NULL)
-		desplazamiento = *desplazamiento_x;
+//t_list * deserializar_lista_strings(void * buffer, int * desplazamiento_x) {
+//	t_list * resultado = list_create();
+//	int desplazamiento = 0;
+//	if(desplazamiento_x != NULL)
+//		desplazamiento = *desplazamiento_x;
+//
+//	int tamanio_lista = deserializar_int(buffer, &desplazamiento);
+//	int i;
+//	for(i = 0; i < tamanio_lista; i++) {
+//		char* valor = deserializar_string(buffer, &desplazamiento);
+//		list_add(resultado, valor);
+//	}
+//	if(desplazamiento_x != NULL)
+//		desplazamiento_x = &desplazamiento;
+//	return resultado;
+//}
 
-	int tamanio_lista = deserializar_int(buffer, &desplazamiento);
-	int i;
-	for(i = 0; i < tamanio_lista; i++) {
-		char* valor = deserializar_string(buffer, &desplazamiento);
+t_list * deserializar_lista_strings(void * buffer, int * desplazamiento) {
+	t_list * resultado = list_create();
+	int tamanio_lista = deserializar_int(buffer, desplazamiento);
+	for(int i = 0; i < tamanio_lista; i++) {
+		char* valor = deserializar_string(buffer, desplazamiento);
 		list_add(resultado, valor);
 	}
-	if(desplazamiento_x != NULL)
-		desplazamiento_x = &desplazamiento;
 	return resultado;
 }
 
@@ -597,7 +632,7 @@ int size_of_list_of_strings_to_serialize(t_list * list) {
 	void agregar_tamanio_string(char* string) {
 		result += size_of_string(string);
 	}
-	list_iterate(list, &agregar_tamanio_string);
+	list_iterate(list, agregar_tamanio_string);
 	return result;
 }
 
