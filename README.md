@@ -75,3 +75,4 @@ LD_LIBRARY_PATH (el path absoluto en donde tengan instaladas las librerias)
 
 Para ejecutar un proceso hay que pararse sobre /*REPO*/*PROCESO*/Debug/ y ejecutar lo siguiente: ./*EJECUTABLE DEL PROCESO* ../*PROCESOConfig.cgf
 
+Para la ejecución del proyecto en Eclipse, ir a Run Configurations -> Arguments -> escribir el path (preferiblemente, el absoluto, para evitar problemas con los paths de Eclipse) del .cfg
