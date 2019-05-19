@@ -34,7 +34,6 @@ typedef struct {
 Configuracion_LS config_LS;
 
 un_socket socket_MEM = 0;
-int tamanio_value;
 
 #endif /* SRC_LISSANDRA_H_ */
 

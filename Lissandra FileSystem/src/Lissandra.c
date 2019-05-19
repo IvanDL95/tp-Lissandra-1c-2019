@@ -38,7 +38,7 @@ int main(int argc, char** argv){
         un_socket nuevo_cliente = aceptar_conexion(socket_servidor);
     	//nuevo_cliente = aceptar_conexion(socket_servidor);
         //if (!fork()) { // Este es el proceso hijo
-            close(socket_servidor); // El hijo no necesita este descriptor
+        //    close(socket_servidor); // El hijo no necesita este descriptor
             analizar_paquete(nuevo_cliente);
         //    close(nuevo_cliente);
         //    exit(0);
@@ -65,28 +65,24 @@ void get_configuracion(char* ruta){
 	config_destroy(archivo_configuracion);
 }
 
-int conectarse_con_Memoria(){
-	socket_MEM = conectar_a(config_LS.IP_MEM, config_LS.PUERTO_MEM);
-	log_info(logger, "Me conecté con Memoria\n");
-	if(!realizar_handshake(socket_MEM))
-		return -1;
-	log_info(logger, "Handshake exitoso!\n");
-	t_paquete* paquete_recibido = recibir(socket_MEM);
-
-	if(paquete_recibido->codigo_operacion == cop_ok){
-		tamanio_value = deserializar_int(paquete_recibido->data, 0);
-		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
-	}else
-		return 1;
-	liberar_paquete(paquete_recibido);
-	return cop_ok;
-}
-
 void analizar_paquete(un_socket nuevo_socket){
 	t_paquete* paquete_recibido = recibir(nuevo_socket);
 
-	if(paquete_recibido->codigo_operacion == cop_handshake)
+	if(paquete_recibido->codigo_operacion == cop_handshake){
+		log_info(logger, "Realizando Handshake con Memoria x\n");
 		esperar_handshake(nuevo_socket, paquete_recibido);
+		log_info(logger, "Handshake exitoso!\n");
+		enviar(nuevo_socket, cop_ok,sizeof(int),config_LS.TAMANIO_VALUE);
+		paquete_recibido = recibir(nuevo_socket);
+		if(paquete_recibido->codigo_operacion == cop_ok)
+			log_info(logger,"La memoria recibió el tamaño del value");
+		else{
+			if(paquete_recibido->codigo_operacion == codigo_error)
+				log_info(logger,"La memoria no recibió el paquete y se cayó");
+			else
+				log_info(logger,"Recibí un paquete fantasma");
+		}
+	}
 	liberar_paquete(paquete_recibido);
 }
 
