@@ -21,7 +21,6 @@ void iniciar_consola(t_log* logger) {
 	        	j=0;
 				comando[j] = strtok(comando_consola, " ");
 				while(comando[j] != NULL && j < 5) {
-					//printf("\n%s", comando[j]);
 					j++;
 					comando[j] = strtok(NULL, " ");
 				}
