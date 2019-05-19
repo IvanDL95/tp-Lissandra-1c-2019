@@ -20,7 +20,6 @@
 typedef enum API command_api;
 
 t_log* logger;
-char* pathKernelconfig = "KernelConfig.cfg";
 
 typedef struct {
 	char* IP_MEMORIA;

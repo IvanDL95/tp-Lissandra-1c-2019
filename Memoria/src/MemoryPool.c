@@ -18,19 +18,18 @@
 #include <API.h>
 #include <pthread.h>
 
-
 static void administrar_conexion(un_socket nuevo_socket);
 void inicializar_memoria();
 void iniciar_gossiping();
 int conectarse_con_FS();
 void iniciar_servidor2();
 
-int main(void){
-	pathMemoriaConfig = "MemoriaConfig.cfg";
+int main(int argc, char** argv){
+	char* pathMemoriaConfig = argv[1];
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_DEBUG);
 	log_info(logger, "Iniciando Memoria\n");
 
-	get_configuracion();
+	get_configuracion(pathMemoriaConfig);
 
 	switch(conectarse_con_FS()){
 		case cop_ok:
@@ -41,6 +40,7 @@ int main(void){
 			break;
 		case 1:
 			log_error(logger, "Tamaño del Value no recibido");
+			enviar(socket_FS,codigo_error,0,NULL);
 			exit(EXIT_FAILURE);
 			break;
 	}
@@ -70,10 +70,10 @@ int main(void){
 	terminar_programa(logger, (int*)-1);
 }
 
-void get_configuracion(){
+void get_configuracion(char* ruta){
 	log_info(logger, "Leyendo archivo de configuracion del proceso Memoria\n");
 
-	t_config* archivo_configuracion = config_create(pathMemoriaConfig);
+	t_config* archivo_configuracion = config_create(ruta);
 
 	if (archivo_configuracion == NULL) {
 		log_error(logger, "Error al abrir Archivo de Configuracion\n");
@@ -106,46 +106,51 @@ int conectarse_con_FS(){
 	if(!realizar_handshake(socket_FS))
 		return -1;
 
-	log_info(logger, "Hadnshake exitoso!\n");
+	log_info(logger, "Handshake exitoso!\n");
 	t_paquete* paquete_recibido = recibir(socket_FS);
 
 	if(paquete_recibido->codigo_operacion == cop_ok){
 		tamanio_value = deserializar_int(paquete_recibido->data, 0);
 		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
+		enviar(socket_FS,cop_ok,0,NULL);
 	}else
-		return 1;
-
+		return 1; /* FS aun no devuelve el tamaño del Value */
 	liberar_paquete(paquete_recibido);
 	return cop_ok;
 }
 
 static void administrar_conexion(un_socket nuevo_socket){
-	t_paquete* paquete_recibido = recibir(nuevo_socket);
-	if(paquete_recibido->codigo_operacion == cop_handshake){
-		log_info(logger, "Realizando handshake con Kernel\n");
-		esperar_handshake(nuevo_socket, paquete_recibido);
-		/* TODO meter estructura de control dentro de "esperar_handshake(un_socket, paquete)"
-		while(paquete_recibido->codigo_operacion != cop_ok){
-			log_error(logger,"No se recibió un valor correcto\n");
-			paquete_recibido = NULL;
-			paquete_recibido = recibir(nuevo_socket);
-		}*/
+	t_paquete* paquete_recibido;
+	while(1){
+		paquete_recibido = recibir(nuevo_socket);
+		if(paquete_recibido->codigo_operacion == cop_handshake){
+			log_info(logger, "Realizando handshake con Kernel\n");
+			esperar_handshake(nuevo_socket, paquete_recibido);
+			/* TODO meter estructura de control dentro de "esperar_handshake(un_socket, paquete)"
+			while(paquete_recibido->codigo_operacion != cop_ok){
+				log_error(logger,"No se recibió un valor correcto\n");
+				paquete_recibido = NULL;
+				paquete_recibido = recibir(nuevo_socket);
+			}*/
+			//liberar_paquete(paquete_recibido);
+			//return;
+		}else{
+			log_info(logger, "Recibiendo datos del Kernel\n");
+			command_api comando = paquete_recibido->codigo_operacion;
+			/* envio argumentos como lista de strings */
+			int desplazamiento = 0;
+			t_list* lista_argumentos = deserializar_lista_strings(paquete_recibido->data, &desplazamiento);
+			int tamanio_lista = list_size(lista_argumentos);
+			char* argumentos[tamanio_lista];
+			for(int i=0;i<tamanio_lista;i++){
+				argumentos[i] = list_get(lista_argumentos,i);
+			}
+			list_destroy(lista_argumentos);
+			ejecutar_API(comando, argumentos);
+			//free(argumentos);
+		}
 		liberar_paquete(paquete_recibido);
-		return;
-	}else{
-		command_api comando = paquete_recibido->codigo_operacion;
-		/* envio argumentos como lista de strings */
-		t_list* lista_argumentos = deserializar_lista_strings(paquete_recibido->data,0);
-		int tamanio_lista = list_size(lista_argumentos);
-		char* argumentos[tamanio_lista];
-   	  	for(int i=0;i<tamanio_lista;i++){
-   	  		argumentos[i] = list_get(lista_argumentos,i);
-   	  	}
-   	  	list_destroy(lista_argumentos);
-		ejecutar_API(comando, argumentos);
-		free(argumentos);
 	}
-	liberar_paquete(paquete_recibido);
 }
 
 int ejecutar_API(command_api operacion, char** argumentos){

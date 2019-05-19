@@ -71,3 +71,7 @@ Environment:
 LD_LIBRARY_PATH (el path absoluto en donde tengan instaladas las librerias)  
 /home/utnso/Documentos/SisOp/tp-2019-1c-La-kernel-de-los-s-bados/Libraries/Debug
 
+# Ejecución de procesos con el .cfg como parámetro
+
+Para ejecutar un proceso hay que pararse sobre /*REPO*/*PROCESO*/Debug/ y ejecutar lo siguiente: ./*EJECUTABLE DEL PROCESO* ../*PROCESOConfig.cgf
+

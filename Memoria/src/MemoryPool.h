@@ -19,7 +19,6 @@
 #define IP "127.0.0.1"
 
 t_log* logger;
-char* pathMemoriaConfig;
 pthread_t hilo_server,hilo_consola,hilo_gossiping;
 un_socket socket_FS;
 int tamanio_value;

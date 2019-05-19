@@ -19,12 +19,12 @@
 
 
 
-int main(void){
+int main(int argc, char** argv){
 
 	logger = log_create("lissandra.log", "Lissandra", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando File System\n");
 
-	get_configuracion();
+	get_configuracion(argv[1]);
 
 	log_info(logger, "Levantando servidor\n");
 	//TODO uso una IP definida o INADDR_ANY?
@@ -48,18 +48,38 @@ int main(void){
 	terminar_programa(logger, &socket_servidor);
 }
 
-void get_configuracion(){
+void get_configuracion(char* ruta){
 	log_info(logger, "Levantando archivo de configuracion del proceso Lissandra\n");
 
-	t_config* archivo_configuracion = config_create(pathLissandraConfig);
+	t_config* archivo_configuracion = config_create(ruta);
 
 	config_LS.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion, "PUERTO_ESCUCHA"));
+	config_LS.IP_MEM = copy_string(get_campo_config_string(archivo_configuracion, "IP_MEM"));
+	config_LS.PUERTO_MEM = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_MEM"));
 	config_LS.PUNTO_MONTAJE = copy_string(get_campo_config_string(archivo_configuracion, "PUNTO_MONTAJE"));
 	config_LS.RETARDO = get_campo_config_int(archivo_configuracion, "RETARDO");
 	config_LS.TAMANIO_VALUE = get_campo_config_int(archivo_configuracion, "TAMAÑO_VALUE");
 	config_LS.TIEMPO_DUMP = get_campo_config_int(archivo_configuracion, "TIEMPO_DUMP");
 
+	puts("\n");
 	config_destroy(archivo_configuracion);
+}
+
+int conectarse_con_Memoria(){
+	socket_MEM = conectar_a(config_LS.IP_MEM, config_LS.PUERTO_MEM);
+	log_info(logger, "Me conecté con Memoria\n");
+	if(!realizar_handshake(socket_MEM))
+		return -1;
+	log_info(logger, "Handshake exitoso!\n");
+	t_paquete* paquete_recibido = recibir(socket_MEM);
+
+	if(paquete_recibido->codigo_operacion == cop_ok){
+		tamanio_value = deserializar_int(paquete_recibido->data, 0);
+		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
+	}else
+		return 1;
+	liberar_paquete(paquete_recibido);
+	return cop_ok;
 }
 
 void analizar_paquete(un_socket nuevo_socket){
