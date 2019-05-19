@@ -18,8 +18,15 @@
 #include <API.h>
 #include <pthread.h>
 
-int main(void){
 
+static void administrar_conexion(un_socket nuevo_socket);
+void inicializar_memoria();
+void iniciar_gossiping();
+int conectarse_con_FS();
+void iniciar_servidor2();
+
+int main(void){
+	pathMemoriaConfig = "MemoriaConfig.cfg";
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_DEBUG);
 	log_info(logger, "Iniciando Memoria\n");
 
@@ -41,19 +48,26 @@ int main(void){
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
 
-	tabla_gossiping = iniciar_gossiping();
-	log_debug(logger, "Tabla de gossiping inicializada\n");
+	pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
+	log_debug(logger, "Gossiping inicializado\n");
+	/*
+	t_gossip* memory[2];
 
+	memory[0] = (t_gossip*)list_get(tabla_gossiping,0);
+	memory[1] = (t_gossip*)list_get(tabla_gossiping,1);
+
+	log_debug(logger, "Puerto memoria %d : %s , IP memoria 0: %s\n", memory[0]->numero_memoria,memory[0]->Puerto,memory[0]->dir_IP);
+	log_debug(logger, "Puerto memoria %d : %s , IP memoria 1: %s\n", memory[1]->numero_memoria,memory[1]->Puerto,memory[1]->dir_IP);
+	*/
 	//TODO Error en retorno de pthread. Revisar.
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
-	int socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
-	log_debug(logger, "Estoy escuchando\n");
-	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor, &socket_listener);
+
+	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor2, NULL);
 
 	pthread_join(hilo_consola, NULL);
 	pthread_join(hilo_server, NULL);
 
-	terminar_programa(logger, &socket_listener);
+	terminar_programa(logger, (int*)-1);
 }
 
 void get_configuracion(){
@@ -83,10 +97,15 @@ void get_configuracion(){
 }
 
 int conectarse_con_FS(){
-	socket_FS = conectar_a(config_MP.IP_FS, config_MP.PUERTO_FS);
+	un_socket socket_recibido;
+	do socket_recibido = conectar_a(config_MP.IP_FS, config_MP.PUERTO_FS);
+	while(socket_recibido==-1);
+
+	socket_FS = socket_recibido;
 	log_info(logger, "Me conecté con Lissandra\n");
 	if(!realizar_handshake(socket_FS))
 		return -1;
+
 	log_info(logger, "Hadnshake exitoso!\n");
 	t_paquete* paquete_recibido = recibir(socket_FS);
 
@@ -95,11 +114,12 @@ int conectarse_con_FS(){
 		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
 	}else
 		return 1;
+
 	liberar_paquete(paquete_recibido);
 	return cop_ok;
 }
 
-void administrar_conexion(un_socket nuevo_socket){
+static void administrar_conexion(un_socket nuevo_socket){
 	t_paquete* paquete_recibido = recibir(nuevo_socket);
 	if(paquete_recibido->codigo_operacion == cop_handshake){
 		log_info(logger, "Realizando handshake con Kernel\n");
@@ -173,44 +193,65 @@ void inicializar_memoria(){
 	list_add(tabla_segmentos,segmento_0);
 }
 
-void iniciar_servidor(un_socket *socket_listener){
-    //while(1) {  // main accept() loop
-    	int  new_fd;
-        new_fd = aceptar_conexion(*socket_listener);
+void iniciar_servidor2(){
+	un_socket socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
+	log_debug(logger, "Estoy escuchando\n");
+    while(1) {  // main accept() loop
+    	int new_fd;
+        new_fd = aceptar_conexion(socket_listener);
         //if (!fork()) { // Este es el proceso hijo
         //    close(*socket_listener); // El hijo no necesita este descriptor
         log_debug(logger, "Me llego una nueva conexión\n");
         administrar_conexion(new_fd);
-        //    close(new_fd);
+        close(new_fd);
         //    exit(0);
         //}
-        close(new_fd);  // El proceso padre no lo necesita
-    //}
+        //close(new_fd);  // El proceso padre no lo necesita
+    }
+    close(socket_listener);
+    pthread_exit(NULL);
 }
 
-t_list* iniciar_gossiping(){
-	t_list* lista_inicial = list_create();
+void iniciar_gossiping(){
+	t_list* tabla_gossiping = list_create();
 	int cantidad_seeds;
-	for(cantidad_seeds=0;config_MP.PUERTO_SEEDS[cantidad_seeds] != NULL;cantidad_seeds++)
-		log_debug(logger,"Cantidad de seeds: %d", cantidad_seeds);
-	puts("\n");
-	t_gossip memoria[cantidad_seeds];
-	for(int i=0; i<cantidad_seeds;i++){
-		memoria[i].Puerto = "0";
-		memoria[i].dir_IP = "0";
+	for(cantidad_seeds=0;config_MP.PUERTO_SEEDS[cantidad_seeds] != NULL && config_MP.IP_SEEDS[cantidad_seeds] != NULL;cantidad_seeds++);
+	log_debug(logger,"Cantidad de seeds: %d\n", cantidad_seeds);
+	if(config_MP.IP_SEEDS[cantidad_seeds] != NULL){
+		log_error(logger, "Menor cantidad de Puertos que de IP semilla, revisar .cfg\n");
+		exit(EXIT_FAILURE);
 	}
+	if(config_MP.PUERTO_SEEDS[cantidad_seeds] != NULL){
+		log_error(logger, "Menor cantidad de IPs que de Puertos semilla, revisar .cfg\n");
+		exit(EXIT_FAILURE);
+	}
+
+	t_gossip memoria[cantidad_seeds];
 
 	for(int i=0;i<cantidad_seeds;i++){
-		memoria[i].numero_memoria = i;
-		memoria[i].Puerto = copy_string((config_MP.PUERTO_SEEDS)[i]);
+		memoria[i].numero_memoria = i+1;
+		memoria[i].Puerto= copy_string((config_MP.PUERTO_SEEDS)[i]);
 		memoria[i].dir_IP = copy_string((config_MP.IP_SEEDS)[i]);
-		memoria[i].conexion = NULL;
+		memoria[i].conexion = -1;
 
-		if(string_equals_ignore_case(memoria[i].Puerto,"0") || string_equals_ignore_case(memoria[i].dir_IP,"0") || memoria[cantidad_seeds+1].dir_IP != NULL)
-			log_error(logger, "Distinta cantidad de Puertos e IPs, revisar config\n");
+		//if(string_equals_ignore_case(memoria[i]->Puerto,"0") || string_equals_ignore_case(memoria[i].dir_IP,"0"))
+		//	log_error(logger, "Distinta cantidad de Puertos e IPs, revisar config\n");
 		log_debug(logger,"Memoria: %d, Puerto: %s, IP: %s \n", memoria[i].numero_memoria, memoria[i].Puerto, memoria[i].dir_IP);
-		list_add(lista_inicial,&(memoria[i]));
+		list_add_in_index(tabla_gossiping,i,&(memoria[i]));
 	}
+	log_debug(logger, "Tabla de gossiping inicializada\n");
 
-	return lista_inicial;
+
+	/*
+	t_gossip memoria_actual;
+	while(1){
+		for(int i=0; ;i++){
+			list_get(tabla_gossiping,i);
+			//conectar_a();
+		}
+		sleep(config_MP.RETARDO_GOSSIPING);
+	}
+	*/
+	pthread_exit(NULL);
 }
+

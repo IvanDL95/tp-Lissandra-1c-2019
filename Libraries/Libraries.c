@@ -1,5 +1,10 @@
 #include "Libraries.h"
 
+
+un_socket _crear_socket(struct addrinfo*);
+struct addrinfo* _configurar_addrinfo(char* IP, char* Port);
+
+
 //prueba libraries
 void imprimir(char* filename){
 	FILE *fptr = NULL;
@@ -35,18 +40,23 @@ struct addrinfo* _configurar_addrinfo(char* IP, char* Port) {
 	return servinfo;
 }
 
+
+//Esto solo sirve para hacer tests
+un_socket nuevo_socket(){
+	struct addrinfo *info = _configurar_addrinfo("127.0.0.1","39042");
+	int socket = _crear_socket(info);
+	return socket;
+}
+
 un_socket conectar_a(char* IP, char* Port) {
 	struct addrinfo *server_info = _configurar_addrinfo(IP, Port);
 	un_socket socket_cliente = _crear_socket(server_info);
 
-	while(1){
-		if(connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1){
-			perror("connect");
-			sleep(1);
-			continue;
-		}
-		break;
+	if(connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1){
+		perror("connect");
+		return -1;
 	}
+
 	freeaddrinfo(server_info);
 	return(socket_cliente);
 }

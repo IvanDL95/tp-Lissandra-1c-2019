@@ -19,7 +19,17 @@
 #define IP "127.0.0.1"
 
 t_log* logger;
-char* pathMemoriaConfig = "MemoriaConfig.cfg";
+char* pathMemoriaConfig;
+pthread_t hilo_server,hilo_consola,hilo_gossiping;
+un_socket socket_FS;
+int tamanio_value;
+
+typedef struct{
+	int numero_memoria;
+	char* dir_IP;
+	char* Puerto;
+	un_socket conexion;
+}t_gossip;
 
 typedef struct {
 	char* PUERTO_ESCUCHA;
@@ -37,11 +47,6 @@ typedef struct {
 
 Configuracion_MP config_MP;
 
-pthread_t hilo_server,hilo_consola;
-un_socket socket_FS = 0;
-t_list* tabla_gossiping;
-int tamanio_value;
-int conectarse_con_FS();
 
 enum bit_modificado{
 	NO_MODIFICADO,
@@ -49,15 +54,6 @@ enum bit_modificado{
 };
 typedef enum bit_modificado flag;
 
-
-typedef struct{
-	int numero_memoria;
-	char* dir_IP;
-	char* Puerto;
-	un_socket* conexion;
-}t_gossip;
-
-t_list* iniciar_gossiping();
 
 typedef struct{
 	//TODO ver cuanto mide value luego de obtener el tamaño
@@ -71,7 +67,7 @@ typedef t_pagina* t_frame;
 
 typedef t_frame* array_de_frames;
 array_de_frames memoria_principal;
-void inicializar_memoria();
+
 
 t_list* tabla_segmentos;
 typedef t_list* tabla_paginas;

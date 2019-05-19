@@ -37,12 +37,12 @@ int main(void){
     while(1) {  // main accept() loop
         un_socket nuevo_cliente = aceptar_conexion(socket_servidor);
     	//nuevo_cliente = aceptar_conexion(socket_servidor);
-        if (!fork()) { // Este es el proceso hijo
+        //if (!fork()) { // Este es el proceso hijo
             close(socket_servidor); // El hijo no necesita este descriptor
             analizar_paquete(nuevo_cliente);
-            close(nuevo_cliente);
-            exit(0);
-        }
+        //    close(nuevo_cliente);
+        //    exit(0);
+        //}
         close(nuevo_cliente);  // El proceso padre no lo necesita
     }
 	terminar_programa(logger, &socket_servidor);
