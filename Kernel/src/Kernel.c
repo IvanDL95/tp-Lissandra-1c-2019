@@ -58,29 +58,33 @@ void get_configuracion(char* ruta){
 }
 
 int ejecutar_API(command_api operacion, char** argumentos){
-	//command_api operacion = convertir_commando(comando[0]);
+	log_debug(logger, "Ejecutando la API\n");
+	t_list * lista_argumentos = list_create();
+	int i = 0;
+	while(argumentos[i] != NULL) {
+		list_add(lista_argumentos, argumentos[i]);
+		i++;
+	}
 	switch(operacion){
 		case SELECT:
-			log_info(logger, "Enviando comando Select a la Memoria\n");
-			//Envío argumentos Select a la Memoria
-			//strtok(comando, " ");
-			printf("\nArgumentos a enviar : %s, %s \n", argumentos[0], argumentos[1]);
-			//printf("\nTamaño Argumento 1 : %d \n", strlen(argumentos));
-
-			//enviar(socket_Memoria, SELECT, strlen(argumento[1])+1, argumento[1]);
-
+			log_info(logger, "Enviando comando SELECT a la Memoria\n");
+			enviar_listado_de_strings(socket_Memoria, lista_argumentos, SELECT);
 			break;
 		case INSERT:
-			printf("\nEjecutando INSERT\n");
+			log_info(logger, "Enviando comando INSERT a la Memoria\n");
+			enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
 			break;
 		case CREATE:
-			printf("\nEjecutando CREATE\n");
+			log_info(logger, "Enviando comando CREATE a la Memoria\n");
+			enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
 			break;
 		case DESCRIBE:
-			printf("\nEjecutando DESCRIBE\n");
+			log_info(logger, "Enviando comando DESCRIBE a la Memoria\n");
+			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
 			break;
 		case DROP:
-			printf("\nEjecutando DROP\n");
+			log_info(logger, "Enviando comando DROP a la Memoria\n");
+			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
 			break;
 		case JOURNAL:
 			printf("\nEjecutando JOURNAL\n");
@@ -116,11 +120,12 @@ int conectar_con_Memoria(){
 	else
 		log_error(logger, "Handshake con Memoria : No Realizado");
 	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
-	paquete_recibido = recibir(socket_Memoria);
-
-	if(paquete_recibido->codigo_operacion == cop_ok){
-			tamanio_value = deserializar_int(paquete_recibido->data, 0);
-	}
+	/* Ver de recibir el paquete de vuelta */
+//	paquete_recibido = recibir(socket_Memoria);
+//
+//	if(paquete_recibido->codigo_operacion == cop_ok){
+//			tamanio_value = deserializar_int(paquete_recibido->data, 0);
+//	}
 	liberar_paquete(paquete_recibido);
 	return 0;
 }
