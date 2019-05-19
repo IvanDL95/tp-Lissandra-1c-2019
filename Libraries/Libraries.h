@@ -28,6 +28,7 @@
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>
+#include "API.h"
 #define MAX_LEN 128
 
 
@@ -190,7 +191,7 @@ int size_of_list_of_strings_to_serialize(t_list * list);
  * ---------------------------------------------------------------------------
  */
 
-void enviar_listado_de_strings(un_socket socket, t_list * listado_strings);
+void enviar_listado_de_strings(un_socket socket, t_list * listado_strings, command_api comando);
 
 t_list * recibir_listado_de_strings(un_socket socket);
 

@@ -498,12 +498,12 @@ char* copy_string(char* value) {
 	return pointer;
 }
 
-void enviar_listado_de_strings(un_socket socket, t_list * listado_strings) {
+void enviar_listado_de_strings(un_socket socket, t_list * listado_strings, command_api comando) {
 	int tamanio_buffer = size_of_list_of_strings_to_serialize(listado_strings);
 	void * buffer = malloc(tamanio_buffer);
 	int desplazamiento = 0;
 	serializar_lista_strings(buffer, &desplazamiento, listado_strings);
-	enviar(socket, cop_generico, tamanio_buffer, buffer);
+	enviar(socket, comando, tamanio_buffer, buffer);
 	free(buffer);
 }
 
