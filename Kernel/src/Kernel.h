@@ -37,6 +37,8 @@ int tamanio_value;
 
 int conectar_con_Memoria();
 
+void parsear_archivo_lql(char*);
+
 void mostrarMetricas();
 
 //void iniciar_consola();

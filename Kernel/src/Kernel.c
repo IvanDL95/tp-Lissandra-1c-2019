@@ -87,13 +87,15 @@ int ejecutar_API(command_api operacion, char** argumentos){
 			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
 			break;
 		case JOURNAL:
-			printf("\nEjecutando JOURNAL\n");
+			log_info(logger, "Ejecutar JOURNAL en cada Memoria Asociada\n");
 			break;
 		case ADD:
 			printf("\nEjecutando ADD\n");
 			break;
 		case RUN:
-			printf("\nEjecutando RUN\n");
+			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL\n");
+			printf("\nArchivo a Parsear : %s\n", argumentos[0]);
+			parsear_archivo_lql(argumentos[0]);
 			break;
 		case METRICS:
 			printf("\nEjecutando METRICS\n");
@@ -129,6 +131,45 @@ int conectar_con_Memoria(){
 	liberar_paquete(paquete_recibido);
 	return 0;
 }
+
+//------------ Funciones de API ------------
+
+void parsear_archivo_lql(char* path_archivo_lql) {
+	char sentencia_lql[1000];
+	char* comando[5];
+	FILE *archivo_lql;
+
+	if ((archivo_lql = fopen(path_archivo_lql, "r")) == NULL)
+	{
+		log_error(logger, "No se pudo abrir el Archivo : %s", path_archivo_lql);
+		// Program exits if file pointer returns NULL.
+		return;
+	}
+	while ( fgets ( sentencia_lql, sizeof(sentencia_lql), archivo_lql ) != NULL ) {
+		printf("Data from the file: %s \n", sentencia_lql);
+		log_info(logger, sentencia_lql);
+		int j=0;
+		comando[j] = strtok(sentencia_lql, " ");
+		while(comando[j] != NULL && j < 5) {
+			j++;
+			comando[j] = strtok(NULL, " ");
+		}
+		char* argumentos[4];
+		for(int i=0;i<4 && comando[i+1] != NULL;i++){
+			argumentos[i] = comando[i+1];
+		}
+		string_to_upper(comando[0]);
+		command_api operacion = convertir_commando(comando[0]);
+		ejecutar_API(operacion, argumentos);
+	}
+//	while ( archivo_lql != NULL ) {
+//		fscanf(archivo_lql,"%[^\n]", sentencia_lql);
+//
+//  }
+	fclose(archivo_lql);
+	return;
+}
+
 
 void mostrarMetricas() {
 	printf("\x1b[32m////////////////////////////////////////////////////////\n\t\t\tMetricas\x1b[0m\n");
