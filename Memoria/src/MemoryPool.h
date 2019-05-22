@@ -61,19 +61,30 @@ typedef struct{
 	char* value;
 }t_pagina;
 
-//Frame == ptr Página -> t_pagina == 16 bytes
-typedef t_pagina* t_frame;
 
-typedef t_frame* array_de_frames;
-array_de_frames memoria_principal;
+static int tamanio_base_pagina = sizeof(int) + sizeof(long int);
 
-
-t_list* tabla_segmentos;
-typedef t_list* tabla_paginas;
-typedef tabla_paginas* t_segmento;
 typedef struct{
 	t_pagina* pagina;
 	flag modificado;
 }t_registro;
+
+typedef t_list* tabla_paginas;
+
+typedef struct{
+	char* nombre_tabla;
+	tabla_paginas tabla;
+}t_segmento;
+
+t_list* tabla_segmentos;
+
+
+/* Memoria Principañ */
+//Frame == ptr Página -> t_pagina
+typedef t_pagina t_frame;
+
+typedef t_frame* array_de_frames;
+array_de_frames memoria_principal;
+
 
 #endif /* SRC_MEMORYPOOL_H_ */

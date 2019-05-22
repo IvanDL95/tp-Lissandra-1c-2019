@@ -23,6 +23,8 @@ void inicializar_memoria();
 void iniciar_gossiping();
 int conectarse_con_FS();
 void iniciar_servidor2();
+void crear_nuevo_segmento(char*);
+void segmento_unico_checkpoint2();
 
 int main(int argc, char** argv){
 	char* pathMemoriaConfig = argv[1];
@@ -47,6 +49,10 @@ int main(int argc, char** argv){
 
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
+
+	segmento_unico_checkpoint2();
+	log_info(logger, "Segmento unico checkpoint 2 creado\n");
+
 
 	pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
 	log_debug(logger, "Gossiping inicializado\n");
@@ -183,19 +189,25 @@ int ejecutar_API(command_api operacion, char** argumentos){
 }
 
 void inicializar_memoria(){
-	log_debug(logger, "SIGO ANDANDO\n");
-	int tamanio_pagina = sizeof(int) + sizeof(long) + tamanio_value;
+	int tamanio_pagina = tamanio_base_pagina + tamanio_value;
 	unsigned int cantindad_frames = config_MP.TAM_MEM/tamanio_pagina;
 	memoria_principal = calloc(cantindad_frames,tamanio_pagina);
 	log_debug(logger, "Malloc memoria exitoso\n");
-	for(int i=0;i<cantindad_frames;i++){
-		memoria_principal[i] = malloc(sizeof(t_pagina));
-	}
-	log_debug(logger, "Reservar los frames no me rompio\n");
+
 	tabla_segmentos = list_create();
-	tabla_paginas tabla_0 = list_create();
-	t_segmento segmento_0 = &tabla_0;
-	list_add(tabla_segmentos,segmento_0);
+}
+
+void segmento_unico_checkpoint2(){
+	crear_nuevo_segmento("Tabla_prueba");
+}
+
+void crear_nuevo_segmento(char* nombre_tabla){
+	t_segmento segmento_nuevo;
+	segmento_nuevo.nombre_tabla = malloc(size_of_string(nombre_tabla));
+	strcpy(segmento_nuevo.nombre_tabla, nombre_tabla);
+	//segmento_nuevo.nombre_tabla = nombre_tabla;
+	segmento_nuevo.tabla = list_create();
+	log_debug(logger, "Nuevo segmento creado\n");
 }
 
 void iniciar_servidor2(){
