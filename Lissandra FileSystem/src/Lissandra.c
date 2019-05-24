@@ -87,7 +87,7 @@ void analizar_paquete(un_socket nuevo_socket){
 }
 
 
-int ejecutar_API(command_api operacion, char** argumentos){
+char* ejecutar_API(command_api operacion, char** argumentos){
 	switch(operacion){
 
 		case SELECT:
@@ -108,5 +108,5 @@ int ejecutar_API(command_api operacion, char** argumentos){
 		default:
 			log_info(logger, "Paquete no reconocido\n");
 	}
-	return 0;
+	return NULL;
 }

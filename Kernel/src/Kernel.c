@@ -57,7 +57,7 @@ void get_configuracion(char* ruta){
 	return;
 }
 
-int ejecutar_API(command_api operacion, char** argumentos){
+char* ejecutar_API(command_api operacion, char** argumentos){
 	log_debug(logger, "Ejecutando la API\n");
 	t_list * lista_argumentos = list_create();
 	int i = 0;
@@ -104,7 +104,7 @@ int ejecutar_API(command_api operacion, char** argumentos){
 		default:
 			printf("\nComando no reconocido\n\n");
 	}
-	return 0;
+	return NULL;
 }
 
 int conectar_con_Memoria(){

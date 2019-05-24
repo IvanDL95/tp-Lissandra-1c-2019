@@ -27,7 +27,10 @@ void iniciar_consola(t_log* logger) {
 			}
 			string_to_upper(comando[0]);
 			command_api operacion = convertir_commando(comando[0]);
-			ejecutar_API(operacion, argumentos);
+			const char* mensaje_retorno = ejecutar_API(operacion, argumentos);
+
+			log_info(logger,"%s", mensaje_retorno);
+
 			free(comando_consola);
 		}
 	}
