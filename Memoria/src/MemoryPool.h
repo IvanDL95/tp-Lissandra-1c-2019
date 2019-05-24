@@ -16,6 +16,7 @@
 #include <API.h>
 #include <commons/log.h>
 #include <pthread.h>
+#include <sys/time.h>
 #define IP "127.0.0.1"
 
 t_log* logger;

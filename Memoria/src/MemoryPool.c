@@ -17,15 +17,18 @@
 #include <stdio.h>
 #include <API.h>
 #include <pthread.h>
+#include <bits/time.h>
+#include <sys/time.h>
 
-static void administrar_conexion(un_socket nuevo_socket);
+static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
 void inicializar_memoria();
 void iniciar_gossiping();
 int conectarse_con_FS();
-void iniciar_servidor2();
-void crear_nuevo_segmento(const char*);
+void iniciar_servidor_select();
+void crear_nuevo_segmento(char*);
 char* buscar_key(tabla_paginas, int key);
 static void solicitar_pagina(const char* value);
+int hacer_select(un_socket maxfd, fd_set* temp_set, struct timeval* tv);
 
 int main(int argc, char** argv){
 	char* pathMemoriaConfig = argv[1];
@@ -34,7 +37,7 @@ int main(int argc, char** argv){
 
 	get_configuracion(pathMemoriaConfig);
 
-	/*switch(conectarse_con_FS()){
+	switch(conectarse_con_FS()){
 		case cop_ok:
 			break;
 		case -1:
@@ -46,7 +49,7 @@ int main(int argc, char** argv){
 			enviar(socket_FS,codigo_error,0,NULL);
 			exit(EXIT_FAILURE);
 			break;
-	}*/
+	}
 
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
@@ -54,6 +57,18 @@ int main(int argc, char** argv){
 	crear_nuevo_segmento("Tabla_prueba");
 	log_info(logger, "Segmento unico checkpoint 2 creado\n");
 
+
+	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
+
+	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor_select, NULL);
+
+	pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
+	log_debug(logger, "Gossiping inicializado\n");
+
+	pthread_join(hilo_consola, NULL);
+	pthread_join(hilo_server, NULL);
+
+	terminar_programa(logger, (int*)-1);
 	/*
 	t_gossip* memory[2];
 
@@ -63,18 +78,6 @@ int main(int argc, char** argv){
 	log_debug(logger, "Puerto memoria %d : %s , IP memoria 0: %s\n", memory[0]->numero_memoria,memory[0]->Puerto,memory[0]->dir_IP);
 	log_debug(logger, "Puerto memoria %d : %s , IP memoria 1: %s\n", memory[1]->numero_memoria,memory[1]->Puerto,memory[1]->dir_IP);
 	*/
-	//TODO Error en retorno de pthread. Revisar.
-	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
-
-	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor2, NULL);
-
-	pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
-	log_debug(logger, "Gossiping inicializado\n");
-
-	pthread_join(hilo_consola, NULL);
-	pthread_join(hilo_server, NULL);
-
-	terminar_programa(logger, (int*)-1);
 }
 
 void get_configuracion(char* ruta){
@@ -103,7 +106,7 @@ void get_configuracion(char* ruta){
 	config_destroy(archivo_configuracion);
 }
 
-int ejecutar_API(command_api operacion, char** argumento){
+char* ejecutar_API(command_api operacion, char** argumento){
 	log_debug(logger, "Ejecutando la API\n");
 	// K&R = D&D
 	char* nombre_tabla;
@@ -168,7 +171,7 @@ int ejecutar_API(command_api operacion, char** argumento){
 		default:
 			log_info(logger,"Paquete no reconocido\n");
 	}
-	return 0;
+	return NULL;
 }
 
 
@@ -183,7 +186,7 @@ void inicializar_memoria(){
 	tabla_segmentos = list_create();
 }
 
-void crear_nuevo_segmento(const char* nombre_tabla){
+void crear_nuevo_segmento(char* nombre_tabla){
 	t_segmento* segmento_nuevo = malloc(sizeof(t_segmento));
 
 	segmento_nuevo->nombre_tabla = malloc(size_of_string(nombre_tabla));
@@ -232,10 +235,7 @@ int conectarse_con_FS(){
 }
 
 
-static void administrar_conexion(un_socket nuevo_socket){
-	t_paquete* paquete_recibido;
-	while(1){
-		paquete_recibido = recibir(nuevo_socket);
+static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket){
 		if(paquete_recibido->codigo_operacion == cop_handshake){
 			log_info(logger, "Realizando handshake con Kernel\n");
 			esperar_handshake(nuevo_socket, paquete_recibido);
@@ -247,7 +247,9 @@ static void administrar_conexion(un_socket nuevo_socket){
 			}*/
 			//liberar_paquete(paquete_recibido);
 			//return;
-		}else{
+		}else if(paquete_recibido->codigo_operacion < 0)
+			return;
+		else{
 			log_info(logger, "Recibiendo datos del Kernel\n");
 			command_api comando = paquete_recibido->codigo_operacion;
 			/* envio argumentos como lista de strings */
@@ -263,10 +265,11 @@ static void administrar_conexion(un_socket nuevo_socket){
 			//free(argumentos);
 		}
 		liberar_paquete(paquete_recibido);
-	}
 }
 
 // Cambiar a otro archivo 'global' ???
+
+/*
 
 void iniciar_servidor2(){
 	un_socket socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
@@ -283,6 +286,70 @@ void iniciar_servidor2(){
         //}
         //close(new_fd);  // El proceso padre no lo necesita
     }
+    close(socket_listener);
+    pthread_exit(NULL);
+}
+
+*/
+
+void iniciar_servidor_select(){
+	fd_set readset, tempset;
+	struct timeval tv;
+	un_socket socket_listener, maxfd;
+
+
+	socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
+	log_debug(logger, "Estoy escuchando\n");
+
+	FD_ZERO(&readset);
+	FD_SET(socket_listener, &readset);
+	maxfd = socket_listener;
+
+	tv.tv_sec = 30;
+	tv.tv_usec = 0;
+
+    while(1) {  // main accept() loop
+		memcpy(&tempset, &readset, sizeof(tempset));
+
+		int resultado = hacer_select(maxfd,&tempset,&tv);
+		if(resultado == -1)
+			continue;
+
+		if (FD_ISSET(socket_listener, &tempset)) {
+			un_socket socket_cliente = aceptar_conexion(socket_listener);
+			log_debug(logger, "Me llego una nueva conexión\n");
+			FD_CLR(socket_listener, &tempset);
+			if (socket_cliente < 0)
+				continue;
+			FD_SET(socket_cliente, &readset);
+			maxfd = (maxfd < socket_cliente)?socket_cliente:maxfd;
+		}
+
+		for (int socket_select=0; socket_select<maxfd+1; socket_select++) {
+			if(FD_ISSET(socket_select, &tempset)){
+
+			t_paquete* paquete_recibido = recibir(socket_select);
+			/*
+			do {
+               result = recv(j, buffer, MAX_BUFFER_SIZE, 0);
+            } while (result == -1 && errno == EINTR);
+			*/
+
+            if (paquete_recibido->codigo_operacion > 0) {
+               log_debug(logger,"Recibí datos desde un socket\n");
+               administrar_conexion(paquete_recibido, socket_select);
+			}
+            else if (paquete_recibido->codigo_operacion == codigo_error) {
+				log_debug(logger, "Se cerró un socket y tuve que darle 18 balazos\n");
+				close(socket_select);
+				FD_CLR(socket_select, &readset);
+            }
+            else
+               log_debug(logger,"Error en recv(): %s\n", strerror(errno));
+		}
+		}      // end for (j=0;...)
+	// end else if (result > 0)
+    } // end main while(1)
     close(socket_listener);
     pthread_exit(NULL);
 }
