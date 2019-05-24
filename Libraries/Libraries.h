@@ -130,14 +130,33 @@ bool esperar_handshake(un_socket socket_del_cliente,
 		t_paquete* inicio_del_handshake);
 
 /**	@NAME: get_in_addr
- *	@DESC: el servidor espera el handshake del cliente.
+ *	@DESC: ?
  *	@RETURN: Una estructura sockaddr_in con la IP y puerto propios
  *
  */
 
 void *get_in_addr(struct sockaddr *sa);
 
+/**	@NAME: hacer_select
+ *	@DESC: Realiza la función select con estructuras de control
+ *	@RETURN: El resultado del select, ya sea error o no, como un int
+ *
+ */
+
+int hacer_select(un_socket maxfd, fd_set* temp_set, struct timeval* tv);
+
+/**	@NAME: get_in_addr
+ *	@DESC: Obtiene la IP (I guess)
+ *	@RETURN: La IP propia como un string
+ *
+ */
+
 char* obtener_mi_ip();
+
+/**	@NAME: iniciar_servidor
+ *	@DESC: Inicia el hilo servidor
+ *
+ */
 
 void iniciar_servidor(un_socket*);
 

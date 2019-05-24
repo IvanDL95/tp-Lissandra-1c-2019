@@ -5,6 +5,7 @@ un_socket _crear_socket(struct addrinfo*);
 struct addrinfo* _configurar_addrinfo(char* IP, char* Port);
 
 
+
 //prueba libraries
 void imprimir(char* filename){
 	FILE *fptr = NULL;
@@ -105,7 +106,7 @@ un_socket aceptar_conexion(un_socket socket_servidor) {
                                        inet_ntoa(their_addr.sin_addr));
 	*/
 	struct sockaddr_in dir_cliente;
-	int tam_direccion = sizeof(struct sockaddr_in);
+	unsigned int tam_direccion = sizeof(struct sockaddr_in);
 	un_socket socket_cliente;
 
     socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
@@ -214,6 +215,20 @@ t_paquete* recibir(un_socket socket_para_recibir) {
 	}
 
 	return paquete_recibido;
+}
+
+int hacer_select(un_socket maxfd, fd_set* temp_set, struct timeval* tv){
+	int result = select(maxfd + 1, temp_set, NULL, NULL, tv);
+
+	if (result == 0) {
+		printf("select() timed out!\n");
+		return -1;
+	}
+	else if (result < 0 && errno != EINTR) {
+		printf("Error in select(): %s\n", strerror(errno));
+		return -1;
+	}
+	return result;
 }
 
 void liberar_paquete(t_paquete * paquete) {
@@ -478,7 +493,7 @@ char* string_concat(int cant_strings, ...) {
    char* result = string_new();
    for(j=0; j < cant_strings; j++)
    {
-	 string_append(&result, va_arg(list, int));
+	 string_append(&result, (void*)va_arg(list, int));
    }
    va_end(list);
    return result;
@@ -544,11 +559,11 @@ void serializar_int(void * buffer, int * desplazamiento, int valor) {
 //}
 
 int deserializar_int(void * buffer, int * desplazamiento) {
-	int valor = NULL;
-	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
+	int *valor = NULL;
+	memcpy(valor, buffer + *desplazamiento, sizeof(int));
 	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
 	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
-	return valor;
+	return *valor;
 }
 
 //void serializar_string(void * buffer, int * desplazamiento, char* valor) {
@@ -591,10 +606,10 @@ char* deserializar_string(void * buffer, int * desplazamiento) {
 
 void serializar_lista_strings(void * buffer, int * desplazamiento, t_list * lista) {
 	serializar_int(buffer, desplazamiento, list_size(lista));
-	void serializar_valor(char* valor) {
+	void _serializar_valor(char* valor) {
 		serializar_string(buffer, desplazamiento, valor);
 	}
-	list_iterate(lista, serializar_valor);
+	list_iterate(lista, (void*)_serializar_valor);
 }
 
 //t_list * deserializar_lista_strings(void * buffer, int * desplazamiento_x) {
@@ -631,7 +646,7 @@ int size_of_strings(int cant_strings, ...) {
    int result = cant_strings * sizeof(int);
    for(j=0; j < cant_strings; j++)
    {
-	 result += size_of_string(va_arg(list, int));
+	 result += size_of_string((char*)va_arg(list, int));
    }
    va_end(list);
    return result;
@@ -639,10 +654,10 @@ int size_of_strings(int cant_strings, ...) {
 
 int size_of_list_of_strings_to_serialize(t_list * list) {
 	int result = list_size(list) * sizeof(int) + sizeof(int);
-	void agregar_tamanio_string(char* string) {
+	void _agregar_tamanio_string(char* string) {
 		result += size_of_string(string);
 	}
-	list_iterate(list, agregar_tamanio_string);
+	list_iterate(list, (void*)_agregar_tamanio_string);
 	return result;
 }
 
@@ -692,6 +707,7 @@ void terminar_programa(t_log* log_file, un_socket *socket){
 	exit(EXIT_SUCCESS);
 }
 
+/*
 un_socket levantar_servidor(uint32_t IP, uint16_t PORT){
 
 	un_socket socket_listener = socket_escucha(IP, PORT);
@@ -702,3 +718,4 @@ un_socket levantar_servidor(uint32_t IP, uint16_t PORT){
 
     return socket_listener;
 }
+*/
