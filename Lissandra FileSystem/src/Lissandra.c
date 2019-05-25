@@ -72,7 +72,7 @@ void analizar_paquete(un_socket nuevo_socket){
 		log_info(logger, "Realizando Handshake con Memoria x\n");
 		esperar_handshake(nuevo_socket, paquete_recibido);
 		log_info(logger, "Handshake exitoso!\n");
-		enviar(nuevo_socket, cop_ok,sizeof(int),config_LS.TAMANIO_VALUE);
+		enviar(nuevo_socket, cop_ok,sizeof(int),&config_LS.TAMANIO_VALUE);
 		paquete_recibido = recibir(nuevo_socket);
 		if(paquete_recibido->codigo_operacion == cop_ok)
 			log_info(logger,"La memoria recibió el tamaño del value");

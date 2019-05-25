@@ -225,8 +225,8 @@ int conectarse_con_FS(){
 	t_paquete* paquete_recibido = recibir(socket_FS);
 
 	if(paquete_recibido->codigo_operacion == cop_ok){
-		tamanio_value = deserializar_int(paquete_recibido->data, 0);
-		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
+		int *p_data = paquete_recibido->data;
+		log_info(logger, "Tamaño del Value = %d\n", *p_data);
 		enviar(socket_FS,cop_ok,0,NULL);
 	}else
 		return 1; /* FS aun no devuelve el tamaño del Value */
