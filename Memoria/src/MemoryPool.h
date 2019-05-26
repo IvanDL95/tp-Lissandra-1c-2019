@@ -14,15 +14,19 @@
 
 #include <Libraries.h>
 #include <API.h>
+#include <ClientServer.h>
 #include <commons/log.h>
+#include <commons/temporal.h>
 #include <pthread.h>
 #include <sys/time.h>
+#include <time.h>
+#include <sys/timeb.h>
 #define IP "127.0.0.1"
 
 t_log* logger;
-pthread_t hilo_server,hilo_consola,hilo_gossiping;
 un_socket socket_FS;
 int tamanio_value;
+unsigned int cantindad_frames;
 
 typedef struct{
 	int numero_memoria;
@@ -58,7 +62,7 @@ typedef enum bit_modificado flag;
 typedef struct{
 	//TODO ver cuanto mide value luego de obtener el tamaño
 	int key;
-	unsigned long int timestamp;
+	time_t timestamp;
 	char* value;
 }t_pagina;
 

@@ -15,20 +15,21 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <API.h>
-#include <pthread.h>
-#include <bits/time.h>
 #include <sys/time.h>
+#include <bits/time.h>
 
 static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
-void inicializar_memoria();
 void iniciar_gossiping();
-int conectarse_con_FS();
 void iniciar_servidor_select();
-void crear_nuevo_segmento(char*);
-char* buscar_key(tabla_paginas, int key);
-static void solicitar_pagina(const char* value);
-int hacer_select(un_socket maxfd, fd_set* temp_set, struct timeval* tv);
+
+int conectarse_con_FS();
+static void inicializar_memoria();
+t_segmento* crear_nuevo_segmento(char*);
+t_pagina* buscar_key(tabla_paginas, int key);
+static void solicitar_pagina(tabla_paginas, const char* value);
+static void actualizar_timestamp(t_pagina*);
+static int asignar_key(tabla_paginas page_table);
+static void algoritmo_reemplazo();
 
 int main(int argc, char** argv){
 	char* pathMemoriaConfig = argv[1];
@@ -41,23 +42,28 @@ int main(int argc, char** argv){
 		case cop_ok:
 			break;
 		case -1:
-			log_error(logger,"Handshake fallido");
+			log_error(logger,"Handshake fallido\n");
 			exit(EXIT_FAILURE);
 			break;
-		case 1:
-			log_error(logger, "Tamaño del Value no recibido");
+		case -2:
+			log_error(logger, "Tamaño del Value no recibido\n");
 			enviar(socket_FS,codigo_error,0,NULL);
 			exit(EXIT_FAILURE);
 			break;
+		default:
+			log_error(logger, "No sé ni que pasó\n");
+			exit(EXIT_FAILURE);
 	}
 
 	inicializar_memoria();
 	log_info(logger, "Memoria Principal reservada\n");
 
-	crear_nuevo_segmento("Tabla_prueba");
+	/*
+	crear_nuevo_segmento("TABLA7");
 	log_info(logger, "Segmento unico checkpoint 2 creado\n");
+	*/
 
-
+	pthread_t hilo_server,hilo_consola,hilo_gossiping;
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
 
 	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor_select, NULL);
@@ -67,8 +73,18 @@ int main(int argc, char** argv){
 
 	pthread_join(hilo_consola, NULL);
 	pthread_join(hilo_server, NULL);
+	pthread_kill(hilo_gossiping, SIGQUIT);
 
-	terminar_programa(logger, (int*)-1);
+
+	log_info(logger, "Finaliza el programa\n");
+
+	memoria_principal = NULL;
+	free(memoria_principal);
+	log_destroy(logger);
+
+	exit(EXIT_SUCCESS);
+
+	//terminar_programa(logger, (int*)-1);
 	/*
 	t_gossip* memory[2];
 
@@ -108,33 +124,53 @@ void get_configuracion(char* ruta){
 
 char* ejecutar_API(command_api operacion, char** argumento){
 	log_debug(logger, "Ejecutando la API\n");
-	// K&R = D&D
-	char* nombre_tabla;
-	char* value = malloc(tamanio_value);
-	int key;
 
 	switch(operacion){
+	char* nombre_tabla;
+	int _is_equal_segmento(t_segmento* segmento){
+		// la lógica del list_find está al revés
+		log_trace(logger,"Compara %s con %s\n", nombre_tabla, segmento->nombre_tabla);
+		return !strcmp(nombre_tabla,segmento->nombre_tabla);
+	}
 		case SELECT:
-			log_debug(logger, "SELECT %s %s\n", argumento[0], argumento[1]);
+		{
 			nombre_tabla = malloc(size_of_string(argumento[0]));
 			strcpy(nombre_tabla,argumento[0]);
-			key = atoi(argumento[1]);
+			int key = atoi(argumento[1]);
+			// liberar_argumentos(char** argumento);
 
-			int _is_equal_segmento(t_segmento* segmento){
-				// la lógica del list_find está al revés
-				return !strcmp(nombre_tabla,segmento->nombre_tabla);
+			log_debug(logger, "SELECT %s %d\n", nombre_tabla, key);
+
+			if(size_of_string(argumento[1]) > tamanio_value){
+				log_info(logger, "Longitud del value muy grande, 'out of bounds'\n");
+				free(argumento[0]);
+				free(argumento[1]);
+				free(argumento);
+				return NULL;
 			}
+
+			free(argumento[0]);
+			free(argumento[1]);
+			free(argumento);
+
 
 			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
 
-			//Si el segmento existe ejecuta el if
-			if(segmento_buscado != NULL){
-				char* new_value = malloc(tamanio_value);
-				new_value = buscar_key(segmento_buscado->tabla, key);
-				if(new_value != NULL)
-					//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-					return new_value;
+			//Si el segmento NO existe ejecuta el if
+			if(segmento_buscado == NULL){
+				log_info(logger,"La tabla no existe\n");
+				return NULL;
 			}
+			char* new_value = malloc(tamanio_value);
+			new_value = NULL;
+			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			if(pagina_buscada != NULL)
+				strcpy(new_value, pagina_buscada->value);
+
+			if(new_value != NULL)
+				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
+				return new_value;
+
 			t_list* lista_strings = list_create();
 			// for(int i=0; argumento[i] != NULL;i++)
 				list_add(lista_strings,argumento[0]);
@@ -142,20 +178,62 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			enviar_listado_de_strings(socket_FS,lista_strings,SELECT);
 			t_paquete* paquete_recibido = recibir(socket_FS);
 
-			int desplazamiento = 0;
-			char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
-			solicitar_pagina(new_value);
-			return new_value;
+			if(paquete_recibido->codigo_operacion == codigo_error){
+				log_info(logger,"La key solicitada no existe en la tabla\n");
+				return NULL;
+			}
 
-			break;
+			int desplazamiento = 0;
+			new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
+			solicitar_pagina(segmento_buscado->tabla,new_value);
+			return new_value;
+		}
+		break;
+
 		case INSERT:
-			log_debug(logger, "INSERT %s %s\n", argumento[0], argumento[1], argumento[2]);
+		{
 			nombre_tabla = malloc(size_of_string(argumento[0]));
 			strcpy(nombre_tabla,argumento[0]);
+			int key = atoi(argumento[1]);
+			char* value = malloc(size_of_string(argumento[2]));
 			strcpy(value,argumento[2]);
-			key = atoi(argumento[1]);
+			// liberar_argumentos(char** argumento);
+			if(size_of_string(argumento[1]) > tamanio_value){
+				log_info(logger, "Longitud del value muy grande, 'out of bounds'\n");
+				free(argumento[0]);
+				free(argumento[1]);
+				free(argumento);
+				return NULL;
+			}
+			free(argumento[0]);
+			free(argumento[1]);
+			free(argumento[2]);
+			free(argumento);
 
-			break;
+			log_debug(logger, "INSERT %s %d %s\n", nombre_tabla, key, value);
+
+			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
+
+			if(segmento_buscado == NULL)
+				segmento_buscado = crear_nuevo_segmento(nombre_tabla);
+
+
+			char* new_value = malloc(tamanio_value);
+			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			strcpy(new_value, pagina_buscada->value);
+
+			if(new_value == NULL){
+				log_debug(logger,"Key no encontrada\n");
+				solicitar_pagina(segmento_buscado->tabla,new_value);
+				return NULL;
+			}
+			log_debug(logger,"Key encontrada. Actualizando timestamp\n");
+			actualizar_timestamp(pagina_buscada);
+			return NULL;
+
+		}
+		break;
+
 		case CREATE:
 			printf("hacer CREATE\n");
 			break;
@@ -177,16 +255,16 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 /****************** FUNCIONES DE MEMORIA **************************/
 
-void inicializar_memoria(){
+static void inicializar_memoria(){
 	int tamanio_pagina = tamanio_base_pagina + tamanio_value;
-	unsigned int cantindad_frames = config_MP.TAM_MEM/tamanio_pagina;
+	cantindad_frames = config_MP.TAM_MEM/tamanio_pagina;
 	memoria_principal = calloc(cantindad_frames,tamanio_pagina);
 	log_debug(logger, "Malloc memoria exitoso\n");
 
 	tabla_segmentos = list_create();
 }
 
-void crear_nuevo_segmento(char* nombre_tabla){
+t_segmento* crear_nuevo_segmento(char* nombre_tabla){
 	t_segmento* segmento_nuevo = malloc(sizeof(t_segmento));
 
 	segmento_nuevo->nombre_tabla = malloc(size_of_string(nombre_tabla));
@@ -198,15 +276,78 @@ void crear_nuevo_segmento(char* nombre_tabla){
 
 	list_add(tabla_segmentos,segmento_nuevo);
 	log_debug(logger, "Nuevo segmento creado\n");
+	return segmento_nuevo;
 }
 
-char* buscar_key(tabla_paginas tabla, int key){
-	log_info(logger,"buscando key\n");
-	return "0";
+t_pagina* buscar_key(tabla_paginas page_table, int key){
+	log_debug(logger,"Buscando key\n");
+
+	int _is_equal_key(t_registro* registro){
+		// la lógica del list_find está al revés
+		log_trace(logger,"Compara %d con %d\n", key, registro->pagina->key);
+		return !(key == registro->pagina->key);
+	}
+
+	t_pagina* pagina_buscada = ((t_registro*)list_find(page_table,(void*)_is_equal_key))->pagina;
+
+	if(pagina_buscada == NULL)
+		return NULL;
+
+	return pagina_buscada;
 }
 
-static void solicitar_pagina(const char* valor){
-	log_info(logger,"Solcitando página para value: %s\n", valor);
+static void solicitar_pagina(tabla_paginas page_table, const char* valor){
+	log_debug(logger,"Solcitando página para value: %s\n", valor);
+
+
+	for(int i=0;i<cantindad_frames;i++){
+		if(&(memoria_principal[i]) != NULL){
+			log_trace(logger,"Frame libre!: %d\n",i);
+
+			t_pagina* nueva_pagina = malloc(tamanio_base_pagina + tamanio_value);
+			nueva_pagina->key = asignar_key(page_table);
+			strcpy(nueva_pagina->value,valor);
+			nueva_pagina->timestamp = time(NULL);
+
+			t_frame frame = *nueva_pagina;
+			memoria_principal[i] = frame;
+
+			t_registro* nuevo_registro = malloc(sizeof(t_registro));
+			nuevo_registro->modificado = MODIFICADO;
+			nuevo_registro->pagina = nueva_pagina;
+
+			list_add(page_table,nuevo_registro);
+
+			return;
+		}
+		log_trace(logger,"Frame ocupado: %d\n",i);
+	}
+
+	log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
+	algoritmo_reemplazo();
+	solicitar_pagina(page_table, valor);
+}
+
+static int asignar_key(tabla_paginas page_table){
+	if(list_is_empty(page_table))
+		return 1;
+
+	int _is_bigger_key(t_registro* x, t_registro* y){
+		return x->pagina->key > y->pagina->key;
+	}
+
+	t_list* tabla_ordenada_segun_key = list_sorted(page_table,(void*)_is_bigger_key);
+	int key_anterior = *(int*)(((t_registro*)list_get(tabla_ordenada_segun_key, 0))->pagina->key);
+
+	return key_anterior+1;
+}
+
+static void actualizar_timestamp(t_pagina* pagina_encontrada){
+	pagina_encontrada->timestamp = time(NULL);
+}
+
+static void algoritmo_reemplazo(){
+
 }
 
 /****************** CONEXIONES **************************/
@@ -225,11 +366,11 @@ int conectarse_con_FS(){
 	t_paquete* paquete_recibido = recibir(socket_FS);
 
 	if(paquete_recibido->codigo_operacion == cop_ok){
-		int *p_data = paquete_recibido->data;
-		log_info(logger, "Tamaño del Value = %d\n", *p_data);
+		tamanio_value = *(int *)(paquete_recibido->data);
+		log_info(logger, "Tamaño del Value = %d\n", tamanio_value);
 		enviar(socket_FS,cop_ok,0,NULL);
 	}else
-		return 1; /* FS aun no devuelve el tamaño del Value */
+		return -2;
 	liberar_paquete(paquete_recibido);
 	return cop_ok;
 }
@@ -309,9 +450,8 @@ void iniciar_servidor_select(){
 	tv.tv_usec = 0;
 
     while(1) {  // main accept() loop
-		memcpy(&tempset, &readset, sizeof(tempset));
 
-		int resultado = hacer_select(maxfd,&tempset,&tv);
+		int resultado = hacer_select(maxfd,&tempset,&readset,&tv);
 		if(resultado == -1)
 			continue;
 
@@ -350,6 +490,7 @@ void iniciar_servidor_select(){
 		}      // end for (j=0;...)
 	// end else if (result > 0)
     } // end main while(1)
+    log_info(logger,"Cerrando servidor\n");
     close(socket_listener);
     pthread_exit(NULL);
 }
