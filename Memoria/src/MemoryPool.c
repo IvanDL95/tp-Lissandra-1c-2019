@@ -17,6 +17,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <bits/time.h>
+#define TAMANIO_PAGINA (sizeof(int)+sizeof(time_t)+tamanio_value)
+#define CANTIDAD_FRAMES config_MP.TAM_MEM/TAMANIO_PAGINA
 
 static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
 void iniciar_gossiping();
@@ -25,18 +27,17 @@ void iniciar_servidor_select();
 int conectarse_con_FS();
 static void inicializar_memoria();
 t_segmento* crear_nuevo_segmento(char*);
-t_pagina* buscar_key(tabla_paginas, int key);
-static void solicitar_pagina(tabla_paginas, const char* value);
-static void actualizar_timestamp(t_pagina*);
-static int asignar_key(tabla_paginas page_table);
+t_registro* buscar_key(tabla_paginas, int key);
+t_pagina* solicitar_pagina(tabla_paginas, const char* value, int key, flag);
+static void actualizar_pagina(t_registro*,const char* new_value);
+//static int asignar_key(tabla_paginas page_table);
 static void algoritmo_reemplazo();
 
 int main(int argc, char** argv){
-	char* pathMemoriaConfig = argv[1];
-	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_DEBUG);
+	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_TRACE);
 	log_info(logger, "Iniciando Memoria\n");
 
-	get_configuracion(pathMemoriaConfig);
+	get_configuracion(argv[1]); //pathMemoriaConfig
 
 	switch(conectarse_con_FS()){
 		case cop_ok:
@@ -63,17 +64,18 @@ int main(int argc, char** argv){
 	log_info(logger, "Segmento unico checkpoint 2 creado\n");
 	*/
 
-	pthread_t hilo_server,hilo_consola,hilo_gossiping;
+	pthread_t hilo_server,hilo_consola//,hilo_gossiping
+	;
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
 
 	pthread_create(&hilo_server, NULL, (void*) iniciar_servidor_select, NULL);
 
-	pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
-	log_debug(logger, "Gossiping inicializado\n");
+	//pthread_create(&hilo_gossiping, NULL, (void*) iniciar_gossiping, NULL);
+	//log_debug(logger, "Gossiping inicializado\n");
 
 	pthread_join(hilo_consola, NULL);
-	pthread_join(hilo_server, NULL);
-	pthread_kill(hilo_gossiping, SIGQUIT);
+	pthread_kill(hilo_server, SIGQUIT);
+	//pthread_kill(hilo_gossiping, SIGQUIT);
 
 
 	log_info(logger, "Finaliza el programa\n");
@@ -106,9 +108,9 @@ void get_configuracion(char* ruta){
 		return;
 	}
 
-	config_MP.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA"));
-	config_MP.IP_FS = copy_string(get_campo_config_string(archivo_configuracion, "IP_FS"));
-	config_MP.PUERTO_FS = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_FS"));
+	config_MP.PUERTO_ESCUCHA = get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA");
+	config_MP.IP_FS = get_campo_config_string(archivo_configuracion, "IP_FS");
+	config_MP.PUERTO_FS = get_campo_config_string(archivo_configuracion,"PUERTO_FS");
 	config_MP.IP_SEEDS = get_campo_config_array(archivo_configuracion, "IP_SEEDS");
 	config_MP.PUERTO_SEEDS = get_campo_config_array(archivo_configuracion, "PUERTO_SEEDS");
 	config_MP.RETARDO_MEM = get_campo_config_int(archivo_configuracion,"RETARDO_MEM");
@@ -122,7 +124,7 @@ void get_configuracion(char* ruta){
 	config_destroy(archivo_configuracion);
 }
 
-char* ejecutar_API(command_api operacion, char** argumento){
+const char* ejecutar_API(command_api operacion, char** argumento){
 	log_debug(logger, "Ejecutando la API\n");
 
 	switch(operacion){
@@ -134,42 +136,36 @@ char* ejecutar_API(command_api operacion, char** argumento){
 	}
 		case SELECT:
 		{
+			if(argumento[0] == NULL || argumento[1] == NULL)
+				return "Campos invalidos";
+			if(!isdigit(argumento[1]))
+				return "Key no numerica";
+
 			nombre_tabla = malloc(size_of_string(argumento[0]));
+			string_to_upper(argumento[0]);
 			strcpy(nombre_tabla,argumento[0]);
 			int key = atoi(argumento[1]);
 			// liberar_argumentos(char** argumento);
 
 			log_debug(logger, "SELECT %s %d\n", nombre_tabla, key);
 
-			if(size_of_string(argumento[1]) > tamanio_value){
-				log_info(logger, "Longitud del value muy grande, 'out of bounds'\n");
-				free(argumento[0]);
-				free(argumento[1]);
-				free(argumento);
-				return NULL;
-			}
-
-			free(argumento[0]);
-			free(argumento[1]);
-			free(argumento);
+			if(size_of_string(argumento[1]) > tamanio_value)
+				return "Longitud del value muy grande, 'out of bounds'";
 
 
 			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
 
 			//Si el segmento NO existe ejecuta el if
-			if(segmento_buscado == NULL){
-				log_info(logger,"La tabla no existe\n");
-				return NULL;
-			}
+			if(segmento_buscado == NULL)
+				return "La tabla no existe";
+
 			char* new_value = malloc(tamanio_value);
 			new_value = NULL;
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key)->pagina;
 			if(pagina_buscada != NULL)
-				strcpy(new_value, pagina_buscada->value);
-
-			if(new_value != NULL)
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-				return new_value;
+				strcpy(new_value, pagina_buscada->value);
+				return string_from_format("El value es: %s", new_value);
 
 			t_list* lista_strings = list_create();
 			// for(int i=0; argumento[i] != NULL;i++)
@@ -178,37 +174,34 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			enviar_listado_de_strings(socket_FS,lista_strings,SELECT);
 			t_paquete* paquete_recibido = recibir(socket_FS);
 
-			if(paquete_recibido->codigo_operacion == codigo_error){
-				log_info(logger,"La key solicitada no existe en la tabla\n");
-				return NULL;
+			if(paquete_recibido->codigo_operacion == cop_ok){
+				int desplazamiento = 0;
+				new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
+				solicitar_pagina(segmento_buscado->tabla,new_value,key,NO_MODIFICADO);
+				return string_from_format("El value es: %s", new_value);
 			}
+			else if(paquete_recibido->codigo_operacion == codigo_error)
+				return "La key solicitada no existe en la tabla";
 
-			int desplazamiento = 0;
-			new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
-			solicitar_pagina(segmento_buscado->tabla,new_value);
-			return new_value;
+			return "Recibí cualquier cosa";
 		}
 		break;
 
 		case INSERT:
 		{
+			if(argumento[0]== NULL || argumento[1]== NULL || argumento[2] == NULL)
+				return "Campos invalidos";
+			if(!isdigit(argumento[1]))
+				return "Key no numerica";
+
 			nombre_tabla = malloc(size_of_string(argumento[0]));
+			string_to_upper(argumento[0]);
 			strcpy(nombre_tabla,argumento[0]);
 			int key = atoi(argumento[1]);
-			char* value = malloc(size_of_string(argumento[2]));
-			strcpy(value,argumento[2]);
+			const char* value = argumento[2];
 			// liberar_argumentos(char** argumento);
-			if(size_of_string(argumento[1]) > tamanio_value){
-				log_info(logger, "Longitud del value muy grande, 'out of bounds'\n");
-				free(argumento[0]);
-				free(argumento[1]);
-				free(argumento);
-				return NULL;
-			}
-			free(argumento[0]);
-			free(argumento[1]);
-			free(argumento[2]);
-			free(argumento);
+			if(size_of_string(argumento[1]) > tamanio_value)
+				return "Longitud del value muy grande, 'out of bounds'";
 
 			log_debug(logger, "INSERT %s %d %s\n", nombre_tabla, key, value);
 
@@ -216,21 +209,22 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 			if(segmento_buscado == NULL)
 				segmento_buscado = crear_nuevo_segmento(nombre_tabla);
+			else
+				log_debug(logger,"Ya existe la tabla\n");
 
+			free(nombre_tabla);
 
-			char* new_value = malloc(tamanio_value);
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
-			strcpy(new_value, pagina_buscada->value);
-
-			if(new_value == NULL){
-				log_debug(logger,"Key no encontrada\n");
-				solicitar_pagina(segmento_buscado->tabla,new_value);
-				return NULL;
+			t_registro* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			if(pagina_buscada != NULL){
+				log_debug(logger,"Key encontrada. Actualizando value y Timestamp\n");
+				actualizar_pagina(pagina_buscada, value);
+				return string_from_format("Value Actualizado: %s\n Timestamp: %d", pagina_buscada->pagina->value, pagina_buscada->pagina->timestamp);
 			}
-			log_debug(logger,"Key encontrada. Actualizando timestamp\n");
-			actualizar_timestamp(pagina_buscada);
-			return NULL;
-
+			else{
+				log_debug(logger,"Key no encontrada\n");
+				t_pagina* nueva_pagina = solicitar_pagina(segmento_buscado->tabla, value, key, MODIFICADO);
+				return string_from_format("Nueva key creada: %d\n Value: %s\n Timestamp: %d", nueva_pagina->key, nueva_pagina->value, nueva_pagina->timestamp);
+			}
 		}
 		break;
 
@@ -256,9 +250,10 @@ char* ejecutar_API(command_api operacion, char** argumento){
 /****************** FUNCIONES DE MEMORIA **************************/
 
 static void inicializar_memoria(){
-	int tamanio_pagina = tamanio_base_pagina + tamanio_value;
-	cantindad_frames = config_MP.TAM_MEM/tamanio_pagina;
-	memoria_principal = calloc(cantindad_frames,tamanio_pagina);
+	memoria_principal = calloc(CANTIDAD_FRAMES,TAMANIO_PAGINA);
+	for(int i=0;i<CANTIDAD_FRAMES;i++)
+		memoria_principal[i].value = malloc(TAMANIO_PAGINA);
+
 	log_debug(logger, "Malloc memoria exitoso\n");
 
 	tabla_segmentos = list_create();
@@ -279,55 +274,55 @@ t_segmento* crear_nuevo_segmento(char* nombre_tabla){
 	return segmento_nuevo;
 }
 
-t_pagina* buscar_key(tabla_paginas page_table, int key){
+t_registro* buscar_key(tabla_paginas page_table, int key){
 	log_debug(logger,"Buscando key\n");
 
 	int _is_equal_key(t_registro* registro){
 		// la lógica del list_find está al revés
 		log_trace(logger,"Compara %d con %d\n", key, registro->pagina->key);
-		return !(key == registro->pagina->key);
+		return (key == registro->pagina->key);
 	}
 
-	t_pagina* pagina_buscada = ((t_registro*)list_find(page_table,(void*)_is_equal_key))->pagina;
-
-	if(pagina_buscada == NULL)
+	if(!list_is_empty(page_table))
+		return ((t_registro*)list_find(page_table,(void*)_is_equal_key));
+	else
 		return NULL;
-
-	return pagina_buscada;
 }
 
-static void solicitar_pagina(tabla_paginas page_table, const char* valor){
+t_pagina* solicitar_pagina(tabla_paginas page_table, const char* valor, int key, flag flag_state){
 	log_debug(logger,"Solcitando página para value: %s\n", valor);
 
 
-	for(int i=0;i<cantindad_frames;i++){
+	for(int i=0;i<CANTIDAD_FRAMES;i++){
 		if(&(memoria_principal[i]) != NULL){
 			log_trace(logger,"Frame libre!: %d\n",i);
 
-			t_pagina* nueva_pagina = malloc(tamanio_base_pagina + tamanio_value);
-			nueva_pagina->key = asignar_key(page_table);
-			strcpy(nueva_pagina->value,valor);
-			nueva_pagina->timestamp = time(NULL);
-
-			t_frame frame = *nueva_pagina;
-			memoria_principal[i] = frame;
+			memoria_principal[i].key= key;
+			strcpy(memoria_principal[i].value, valor);
+			memoria_principal[i].timestamp = time(NULL);
 
 			t_registro* nuevo_registro = malloc(sizeof(t_registro));
-			nuevo_registro->modificado = MODIFICADO;
-			nuevo_registro->pagina = nueva_pagina;
+			nuevo_registro->pagina = &(memoria_principal[i]);
+			nuevo_registro->modificado = flag_state;
 
 			list_add(page_table,nuevo_registro);
 
-			return;
+			return &memoria_principal[i];
 		}
 		log_trace(logger,"Frame ocupado: %d\n",i);
 	}
 
 	log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
 	algoritmo_reemplazo();
-	solicitar_pagina(page_table, valor);
+	return solicitar_pagina(page_table, valor, key, flag_state);
 }
 
+static void actualizar_pagina(t_registro* pagina_encontrada, const char* new_value){
+	strcpy(pagina_encontrada->pagina->value, new_value);
+	pagina_encontrada->pagina->timestamp = time(NULL);
+	pagina_encontrada->modificado = MODIFICADO;
+}
+/*
 static int asignar_key(tabla_paginas page_table){
 	if(list_is_empty(page_table))
 		return 1;
@@ -337,14 +332,12 @@ static int asignar_key(tabla_paginas page_table){
 	}
 
 	t_list* tabla_ordenada_segun_key = list_sorted(page_table,(void*)_is_bigger_key);
-	int key_anterior = *(int*)(((t_registro*)list_get(tabla_ordenada_segun_key, 0))->pagina->key);
+	int key_anterior = (((t_registro*)list_get(tabla_ordenada_segun_key, 0))->pagina->key);
 
 	return key_anterior+1;
 }
+*/
 
-static void actualizar_timestamp(t_pagina* pagina_encontrada){
-	pagina_encontrada->timestamp = time(NULL);
-}
 
 static void algoritmo_reemplazo(){
 
@@ -410,34 +403,10 @@ static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_so
 
 // Cambiar a otro archivo 'global' ???
 
-/*
-
-void iniciar_servidor2(){
-	un_socket socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
-	log_debug(logger, "Estoy escuchando\n");
-    while(1) {  // main accept() loop
-    	int new_fd;
-        new_fd = aceptar_conexion(socket_listener);
-        //if (!fork()) { // Este es el proceso hijo
-        //    close(*socket_listener); // El hijo no necesita este descriptor
-        log_debug(logger, "Me llego una nueva conexión\n");
-        administrar_conexion(new_fd);
-        close(new_fd);
-        //    exit(0);
-        //}
-        //close(new_fd);  // El proceso padre no lo necesita
-    }
-    close(socket_listener);
-    pthread_exit(NULL);
-}
-
-*/
 
 void iniciar_servidor_select(){
 	fd_set readset, tempset;
-	struct timeval tv;
 	un_socket socket_listener, maxfd;
-
 
 	socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
 	log_debug(logger, "Estoy escuchando\n");
@@ -446,12 +415,10 @@ void iniciar_servidor_select(){
 	FD_SET(socket_listener, &readset);
 	maxfd = socket_listener;
 
-	tv.tv_sec = 30;
-	tv.tv_usec = 0;
 
     while(1) {  // main accept() loop
 
-		int resultado = hacer_select(maxfd,&tempset,&readset,&tv);
+		int resultado = hacer_select(maxfd,&tempset,&readset);
 		if(resultado == -1)
 			continue;
 
@@ -538,3 +505,26 @@ void iniciar_gossiping(){
 	pthread_exit(NULL);
 }
 
+
+/*
+
+void iniciar_servidor2(){
+	un_socket socket_listener = socket_escucha(IP,config_MP.PUERTO_ESCUCHA);
+	log_debug(logger, "Estoy escuchando\n");
+    while(1) {  // main accept() loop
+    	int new_fd;
+        new_fd = aceptar_conexion(socket_listener);
+        //if (!fork()) { // Este es el proceso hijo
+        //    close(*socket_listener); // El hijo no necesita este descriptor
+        log_debug(logger, "Me llego una nueva conexión\n");
+        administrar_conexion(new_fd);
+        close(new_fd);
+        //    exit(0);
+        //}
+        //close(new_fd);  // El proceso padre no lo necesita
+    }
+    close(socket_listener);
+    pthread_exit(NULL);
+}
+
+*/

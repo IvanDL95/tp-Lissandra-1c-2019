@@ -109,7 +109,7 @@ bool esperar_handshake(un_socket socket_del_cliente,
  *
  */
 
-int hacer_select(un_socket maxfd, fd_set* temp_set, fd_set* read_set, struct timeval*);
+int hacer_select(un_socket maxfd, fd_set* temp_set,fd_set* read_set);
 
 /**	@NAME: obtener_mi_ip
  *	@DESC: Obtiene la IP (I guess)

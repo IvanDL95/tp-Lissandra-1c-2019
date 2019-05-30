@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <string.h>
+#include <ctype.h>
 #include <commons/string.h>
 #include <commons/error.h>
 #include <commons/config.h>
@@ -138,7 +139,7 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*));
  * ---------------------------------------------------------------------------
  */
 
-size_t size_of_string(char* string);
+size_t size_of_string(const char* string);
 
 char* string_concat(int cant_strings, ...);
 

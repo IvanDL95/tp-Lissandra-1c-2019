@@ -226,7 +226,7 @@ void crear_subcarpeta(char* nombre) {
 }
 
 
-size_t size_of_string(char* string) {
+size_t size_of_string(const char* string) {
 	return (strlen(string) * sizeof(char)) + 1;
 }
 

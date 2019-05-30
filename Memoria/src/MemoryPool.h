@@ -26,7 +26,6 @@
 t_log* logger;
 un_socket socket_FS;
 int tamanio_value;
-unsigned int cantindad_frames;
 
 typedef struct{
 	int numero_memoria;
@@ -66,9 +65,6 @@ typedef struct{
 	char* value;
 }t_pagina;
 
-
-static int tamanio_base_pagina = sizeof(int) + sizeof(long int);
-
 typedef struct{
 	t_pagina* pagina;
 	flag modificado;
@@ -84,7 +80,7 @@ typedef struct{
 t_list* tabla_segmentos;
 
 
-/* Memoria Principañ */
+/* Memoria Principal */
 //Frame == ptr Página -> t_pagina
 typedef t_pagina t_frame;
 

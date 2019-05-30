@@ -246,10 +246,10 @@ struct addrinfo* _configurar_addrinfo(char* IP, char* Port) {
 	return servinfo;
 }
 
-int hacer_select(un_socket maxfd, fd_set* temp_set,fd_set* read_set, struct timeval* tv){
+int hacer_select(un_socket maxfd, fd_set* temp_set,fd_set* read_set){
 	memcpy(temp_set, read_set, sizeof(*temp_set));
 
-	int result = select(maxfd + 1, temp_set, NULL, NULL, tv);
+	int result = select(maxfd + 1, temp_set, NULL, NULL, NULL);
 
 	if (result == 0) {
 		printf("select() timed out!\n");
