@@ -124,7 +124,7 @@ void get_configuracion(char* ruta){
 	config_destroy(archivo_configuracion);
 }
 
-const char* ejecutar_API(command_api operacion, char** argumento){
+char* ejecutar_API(command_api operacion, char** argumento){
 	log_debug(logger, "Ejecutando la API\n");
 
 	switch(operacion){

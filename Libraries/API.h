@@ -31,7 +31,7 @@ enum API{
 
 typedef enum API command_api;
 
-const char* ejecutar_API(command_api, char**);
+char* ejecutar_API(command_api, char**);
 
 void iniciar_consola(t_log*);
 
