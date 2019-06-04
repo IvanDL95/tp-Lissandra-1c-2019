@@ -23,8 +23,6 @@ t_log* logger;
 
 typedef struct {
 	char* PUERTO_ESCUCHA;
-	char* IP_MEM;
-	char* PUERTO_MEM;
 	char* PUNTO_MONTAJE;
 	unsigned int RETARDO;
 	unsigned int TAMANIO_VALUE;
@@ -33,7 +31,12 @@ typedef struct {
 
 Configuracion_LS config_LS;
 
-un_socket socket_MEM = 0;
+un_socket socket_MEM;
+
+pthread_t hilo_Server;
+pthread_attr_t hilo_attr_Server;
+pthread_mutex_t mutex_mensaje;
+pthread_mutex_t mutex_logger;
 
 #endif /* SRC_LISSANDRA_H_ */
 
