@@ -237,7 +237,7 @@ char* string_concat(int cant_strings, ...) {
    char* result = string_new();
    for(j=0; j < cant_strings; j++)
    {
-	 string_append(&result, (void*)va_arg(list, int));
+	 string_append(&result, (void*)va_arg(list, va_list));
    }
    va_end(list);
    return result;
@@ -285,29 +285,27 @@ t_list * recibir_listado_de_strings(un_socket socket) {
 }
 
 void serializar_int(void * buffer, int * desplazamiento, int valor) {
-	if(desplazamiento != NULL){
-		buffer = buffer + *desplazamiento;
-		*desplazamiento = *desplazamiento + sizeof(int);
+	if(desplazamiento == NULL)
+		memcpy(buffer, &valor, sizeof(int));
+	else{
+		memcpy(buffer + *desplazamiento, &valor, sizeof(int));
+		int nuevo_desplazamiento = *desplazamiento + sizeof(int);
+		memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
 	}
-	memcpy(buffer, &valor, sizeof(int));
 }
-
-//int deserializar_int(void * buffer, int * desplazamiento) {
-//	if(desplazamiento != NULL){
-//		buffer = buffer + *desplazamiento;
-//		*desplazamiento = *desplazamiento + sizeof(int);
-//	}
-//	int *valor = malloc(sizeof(int));
-//	memcpy(valor, buffer, sizeof(int));
-//	return *valor;
-//}
 
 int deserializar_int(void * buffer, int * desplazamiento) {
 	int valor = 0;
-	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
-	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
-	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
-	return valor;
+	if(desplazamiento == NULL){
+		memcpy(&valor, buffer, sizeof(int));
+		return valor;
+	}
+	else{
+		memcpy(&valor, buffer + *desplazamiento, sizeof(int));
+		int nuevo_desplazamiento = *desplazamiento + sizeof(int);
+		memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
+		return valor;
+	}
 }
 
 //void serializar_string(void * buffer, int * desplazamiento, char* valor) {
@@ -349,6 +347,14 @@ char* deserializar_string(void * buffer, int * desplazamiento) {
 	int nuevo_desplazamiento = *desplazamiento + tamanio_valor;
 	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
 	return valor;
+}
+
+void enviar_string(un_socket socket_para_enviar, int codigo_de_operacion, char* mensaje){
+	unsigned int tamanio_buffer = size_of_string(mensaje)+sizeof(int);
+    void* buffer = malloc(tamanio_buffer);
+    int desplazamiento = 0;
+    serializar_string(buffer, &desplazamiento, mensaje);
+    enviar(socket_para_enviar,codigo_de_operacion,tamanio_buffer,buffer);
 }
 
 void serializar_lista_strings(void * buffer, int * desplazamiento, t_list * lista) {
@@ -393,7 +399,7 @@ int size_of_strings(int cant_strings, ...) {
    int result = cant_strings * sizeof(int);
    for(j=0; j < cant_strings; j++)
    {
-	 result += size_of_string((char*)va_arg(list, int));
+	 result += size_of_string((char*)va_arg(list, va_list));
    }
    va_end(list);
    return result;

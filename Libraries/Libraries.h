@@ -139,6 +139,12 @@ t_list * list_remove_all_by_condition(t_list * lista, bool(*condicion)(void*));
  * ---------------------------------------------------------------------------
  */
 
+/**	@NAME: enviar_string
+ *	@DESC: Envía un string a un socket con un codigo de operación.
+ */
+
+void enviar_string(un_socket socket_para_enviar, int codigo_de_operacion, char* mensaje);
+
 size_t size_of_string(const char* string);
 
 char* string_concat(int cant_strings, ...);
