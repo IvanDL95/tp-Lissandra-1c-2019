@@ -164,10 +164,10 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			if(segmento_buscado == NULL)
 				return "La tabla no existe";
 
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key)->pagina;
+			t_registro* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
 			if(pagina_buscada != NULL){
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-				return string_from_format("El value es: %s", pagina_buscada->value);
+				return string_from_format("El value es: %s", pagina_buscada->pagina->value);
 			}
 
 			t_list* lista_strings = list_create();
