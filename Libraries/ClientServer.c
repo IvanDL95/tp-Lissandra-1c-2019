@@ -24,6 +24,7 @@ un_socket conectar_a(char* IP, char* Port) {
 
 	if(connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1){
 		perror("connect");
+		sleep(1);
 		return -1;
 	}
 
@@ -79,8 +80,9 @@ un_socket aceptar_conexion(un_socket socket_servidor) {
 	un_socket socket_cliente;
 
     socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
-    if(socket_cliente == -1)
+    if(socket_cliente == -1){
     	perror("Accept");
+    }
 
 	return socket_cliente;
 }
@@ -98,6 +100,7 @@ bool realizar_handshake(un_socket socket_del_servidor) {
 	t_paquete * resultado_del_handhsake = recibir(socket_del_servidor);
 	bool resultado = string_equals_ignore_case(
 			(char *) resultado_del_handhsake->data, "Autenticado");
+
 
 	liberar_paquete(resultado_del_handhsake);
 
@@ -135,15 +138,17 @@ void enviar(un_socket socket_para_enviar, int codigo_operacion, int tamanio,
 	memcpy(buffer + 2 * sizeof(int), data, tamanio);
 
 	int ok;
+	int sent=0;
 
-	//TODO testear
 	do{
-		ok = send(socket_para_enviar, buffer, tamanio_paquete, MSG_DONTWAIT);
-	//	if(ok==-1){
-	//		perror("send");
+		ok = send(socket_para_enviar, buffer+sent, tamanio_paquete-sent, MSG_DONTWAIT);
+		if(ok>0)
+			sent += ok;
+		else if(ok==-1){
+			perror("send");
 			break;
-	//	}
-	}while(ok != tamanio_paquete);
+		}
+	}while(sent < tamanio_paquete);
 
 	free(buffer);
 }
@@ -157,22 +162,18 @@ t_paquete* recibir(un_socket socket_para_recibir) {
 
 	if(retorno==0){
 		paquete_recibido->codigo_operacion=-1;
-		void * informacion_recibida = malloc(sizeof(int));
-		paquete_recibido->data = informacion_recibida;
+		paquete_recibido->data = NULL;
 		return paquete_recibido;
 
 	}
 	recv(socket_para_recibir, &paquete_recibido->tamanio, sizeof(int),
 	MSG_WAITALL);
 
-	if(paquete_recibido->tamanio > 0)
-	{
-		void * informacion_recibida = malloc(paquete_recibido->tamanio);
+	if(paquete_recibido->tamanio > 0){
+		paquete_recibido->data = malloc(paquete_recibido->tamanio);
 
-			recv(socket_para_recibir, informacion_recibida, paquete_recibido->tamanio,
+		recv(socket_para_recibir, paquete_recibido->data, paquete_recibido->tamanio,
 			MSG_WAITALL);
-
-			paquete_recibido->data = informacion_recibida;
 	}
 
 	return paquete_recibido;
