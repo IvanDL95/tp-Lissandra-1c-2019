@@ -138,8 +138,8 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		{
 			if(argumento[0] == NULL || argumento[1] == NULL)
 				return "Campos invalidos";
-			if(!isdigit(argumento[1]))
-				return "Key no numerica";
+			//if(!isdigit(argumento[1]))
+				//return "Key no numerica";
 
 			nombre_tabla = malloc(size_of_string(argumento[0]));
 			string_to_upper(argumento[0]);
@@ -442,7 +442,7 @@ void iniciar_servidor_select(){
             } while (result == -1 && errno == EINTR);
 			*/
 
-            if (paquete_recibido->codigo_operacion > 0) {
+            if (paquete_recibido->codigo_operacion >= 0) {
                log_debug(logger,"Recibí datos desde un socket\n");
                administrar_conexion(paquete_recibido, socket_select);
 			}
