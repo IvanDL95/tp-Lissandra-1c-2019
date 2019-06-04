@@ -303,11 +303,11 @@ void serializar_int(void * buffer, int * desplazamiento, int valor) {
 //}
 
 int deserializar_int(void * buffer, int * desplazamiento) {
-	int *valor = NULL;
-	memcpy(valor, buffer + *desplazamiento, sizeof(int));
+	int valor = 0;
+	memcpy(&valor, buffer + *desplazamiento, sizeof(int));
 	int nuevo_desplazamiento = *desplazamiento + sizeof(int);
 	memcpy(desplazamiento, &nuevo_desplazamiento, sizeof(int));
-	return *valor;
+	return valor;
 }
 
 //void serializar_string(void * buffer, int * desplazamiento, char* valor) {

@@ -452,7 +452,7 @@ void iniciar_servidor_select(){
             } while (result == -1 && errno == EINTR);
 			*/
 
-            if (paquete_recibido->codigo_operacion > 0) {
+            if (paquete_recibido->codigo_operacion >= 0) {
                log_debug(logger,"Recibí datos desde un socket\n");
                administrar_conexion(paquete_recibido, socket_select);
 			}
