@@ -43,15 +43,10 @@ int main(int argc, char** argv){
 
     while(1) {  // main accept() loop
         un_socket nuevo_cliente = aceptar_conexion(socket_servidor);
-    	//nuevo_cliente = aceptar_conexion(socket_servidor);
-        //if (!fork()) { // Este es el proceso hijo
-        //    close(socket_servidor); // El hijo no necesita este descriptor
+
         log_info(logger,"Me llegó una nueva conexión\n");
         pthread_create(&hilo_Server,&hilo_attr_Server,(void*)analizar_paquete,&nuevo_cliente);
-        //    close(nuevo_cliente);
-        //    exit(0);
-        //}
-          // El proceso padre no lo necesita
+
     }
 	terminar_programa(logger, &socket_servidor);
 }
@@ -73,6 +68,7 @@ void get_configuracion(char* ruta){
 
 
 void analizar_paquete(un_socket* nuevo_socket){
+	while(1){
 	/*
 	fd_set temp_set, read_set;
 	FD_ZERO(&read_set);
@@ -95,38 +91,59 @@ void analizar_paquete(un_socket* nuevo_socket){
 	}
 	*/
     t_paquete* paquete_recibido = recibir(*nuevo_socket);
-    if(paquete_recibido->codigo_operacion == cop_handshake){
-    	log_info(logger, "Realizando Handshake con Memoria x\n");
-    	esperar_handshake(*nuevo_socket, paquete_recibido);
-    	log_info(logger, "Handshake exitoso!\n");
+    switch(paquete_recibido->codigo_operacion){
+    	case codigo_error:
+    		log_info(logger,"Se desconecto una memoria \n");
+    	    close(*nuevo_socket);
+    	    pthread_detach(pthread_self());
+    	    pthread_exit(NULL);
+    		break;
+    	case cop_handshake:
+    		log_info(logger, "Realizando Handshake con Memoria x\n");
+    		esperar_handshake(*nuevo_socket, paquete_recibido);
+    		log_info(logger, "Handshake exitoso!\n");
 
-    	enviar(*nuevo_socket, cop_ok,sizeof(int),&config_LS.TAMANIO_VALUE);
-    	paquete_recibido = recibir(*nuevo_socket);
-			if(paquete_recibido->codigo_operacion == cop_ok)
-				log_info(logger,"La memoria recibió el tamaño del value\n");
-			else{
-				if(paquete_recibido->codigo_operacion == codigo_error)
-				log_info(logger,"La memoria no recibió el paquete y se cayó\n");
-				else
-				log_info(logger,"Recibí un paquete fantasma\n");
-			}
-    }else{
-    	command_api comando = paquete_recibido->codigo_operacion;
-    	/* envio argumentos como lista de strings */
-    	int desplazamiento = 0;
-    	t_list* lista_argumentos = deserializar_lista_strings(paquete_recibido->data, &desplazamiento);
-    	int tamanio_lista = list_size(lista_argumentos);
-    	char* argumentos[tamanio_lista];
-    	for(int i=0;i<tamanio_lista;i++){
-			argumentos[i] = list_get(lista_argumentos,i);
+    		enviar(*nuevo_socket, cop_ok,sizeof(int),&config_LS.TAMANIO_VALUE);
+    		paquete_recibido = recibir(*nuevo_socket);
+				if(paquete_recibido->codigo_operacion == cop_ok)
+					log_info(logger,"La memoria recibió el tamaño del value\n");
+				else{
+					if(paquete_recibido->codigo_operacion == codigo_error)
+						log_info(logger,"La memoria no recibió el paquete y se cayó\n");
+					else
+						log_info(logger,"Recibí un paquete fantasma\n");
+				}
+			break;
+    	default:
+    	{
+    		command_api comando = paquete_recibido->codigo_operacion;
+    		/* envio argumentos como lista de strings */
+    		int desplazamiento = 0;
+    		t_list* lista_argumentos = deserializar_lista_strings(paquete_recibido->data, &desplazamiento);
+    		int tamanio_lista = list_size(lista_argumentos);
+    		char* argumentos[tamanio_lista];
+    		for(int i=0;i<tamanio_lista;i++){
+    			argumentos[i] = list_get(lista_argumentos,i);
+    		}
+    		list_destroy(lista_argumentos);
+    		ejecutar_API(comando, argumentos);
+    		/* segfault glorioso
+    		char* mensaje_retorno = ejecutar_API(comando, argumentos);
+    		if(mensaje_retorno == NULL)
+    			enviar(*nuevo_socket,codigo_error,0,NULL);
+    		else{
+    			unsigned int tamanio_buffer = size_of_string(mensaje_retorno)+sizeof(int);
+    			void* buffer = malloc(tamanio_buffer);
+    			desplazamiento = 0;
+    			serializar_string(buffer, &desplazamiento, mensaje_retorno);
+    		}
+    	*/
+    		enviar(*nuevo_socket,codigo_error,0,NULL);
     	}
-    	list_destroy(lista_argumentos);
-
-    	ejecutar_API(comando, argumentos);
-    }
-    close(*nuevo_socket);
-    liberar_paquete(paquete_recibido);
-    pthread_detach(pthread_self());
+    	break;
+    	}
+    	liberar_paquete(paquete_recibido);
+	}
 }
 
 
@@ -134,7 +151,7 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 	switch(operacion){
 
 		case SELECT:
-			printf("hacer SELECT");
+			printf("hacer SELECT\n");
 			break;
 		case INSERT:
 			printf("hacer INSERT");
