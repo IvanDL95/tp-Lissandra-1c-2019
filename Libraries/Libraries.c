@@ -313,9 +313,11 @@ int deserializar_int(void * buffer, int * desplazamiento) {
 //void serializar_string(void * buffer, int * desplazamiento, char* valor) {
 //	int tamanio_valor = size_of_string(valor);
 //	serializar_int(buffer, desplazamiento, tamanio_valor);
-//	if(desplazamiento != NULL){
-//		buffer = buffer + *desplazamiento;
-//		*desplazamiento = *desplazamiento + sizeof(int);
+//	if(desplazamiento == NULL)
+//		memcpy(buffer, valor, tamanio_valor);
+//	else{
+//		memcpy(buffer + *desplazamiento, valor, tamanio_valor);
+//		*desplazamiento = *desplazamiento + tamanio_valor;
 //	}
 //	memcpy(buffer, valor, tamanio_valor);
 //}
@@ -330,12 +332,13 @@ void serializar_string(void * buffer, int * desplazamiento, char* valor) {
 
 //char* deserializar_string(void * buffer, int * desplazamiento) {
 //	int tamanio_valor = deserializar_int(buffer, desplazamiento);
-//	if(desplazamiento != NULL){
-//		buffer = buffer + *desplazamiento;
-//		*desplazamiento = *desplazamiento + sizeof(int);
-//	}
 //	char* valor = malloc(tamanio_valor);
-//	memcpy(valor, buffer, tamanio_valor);
+//	if(desplazamiento == NULL)
+//		memcpy(valor, buffer, tamanio_valor);
+//	else{
+//		memcpy(valor, buffer + *desplazamiento, tamanio_valor);
+//		*desplazamiento = *desplazamiento + tamanio_valor;
+//	}
 //	return valor;
 //}
 
