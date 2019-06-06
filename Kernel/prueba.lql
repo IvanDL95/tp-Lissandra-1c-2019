@@ -1,5 +1,7 @@
 CREATE TABLA7 SC 4 60000
-INSERT TABLA7 3 “Sistemas Operativos - 1er Cuatrimestre”
+INSERT TABLA7 3 "Sistemas Operativos - 1er Cuatrimestre"
 SELECT TABLA7 3
 DESCRIBE TABLA7
+INSERT TABLA3 1 "Estructura de Datos"
+INSERT TABLA2 5 "Notebook"
 DROP TABLA7
