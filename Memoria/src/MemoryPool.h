@@ -24,6 +24,7 @@
 #define IP "127.0.0.1"
 
 t_log* logger;
+pthread_mutex_t mutex_logger;
 un_socket socket_FS;
 int tamanio_value;
 

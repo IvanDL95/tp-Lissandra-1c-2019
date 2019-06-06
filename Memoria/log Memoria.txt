@@ -1,4 +1,0 @@
-[INFO] 23:52:24:499 MemoryPool/(7593:7593): Iniciando Memoria
-
-[INFO] 19:19:00:760 MemoryPool/(7261:7261): Iniciando Memoria
-

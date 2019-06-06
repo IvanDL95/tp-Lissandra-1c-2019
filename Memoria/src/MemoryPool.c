@@ -21,7 +21,7 @@
 #define CANTIDAD_FRAMES config_MP.TAM_MEM/TAMANIO_PAGINA
 
 static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
-void iniciar_gossiping();
+//void iniciar_gossiping();
 void iniciar_servidor_select();
 
 int conectarse_con_FS();
@@ -35,7 +35,9 @@ static void algoritmo_reemplazo();
 
 int main(int argc, char** argv){
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_TRACE);
+	pthread_mutex_init(&mutex_logger, NULL);
 	log_info(logger, "Iniciando Memoria\n");
+
 
 	get_configuracion(argv[1]); //pathMemoriaConfig
 
@@ -108,9 +110,9 @@ void get_configuracion(char* ruta){
 		return;
 	}
 
-	config_MP.PUERTO_ESCUCHA = get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA");
-	config_MP.IP_FS = get_campo_config_string(archivo_configuracion, "IP_FS");
-	config_MP.PUERTO_FS = get_campo_config_string(archivo_configuracion,"PUERTO_FS");
+	config_MP.PUERTO_ESCUCHA = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_ESCUCHA"));
+	config_MP.IP_FS = copy_string(get_campo_config_string(archivo_configuracion, "IP_FS"));
+	config_MP.PUERTO_FS = copy_string(get_campo_config_string(archivo_configuracion,"PUERTO_FS"));
 	config_MP.IP_SEEDS = get_campo_config_array(archivo_configuracion, "IP_SEEDS");
 	config_MP.PUERTO_SEEDS = get_campo_config_array(archivo_configuracion, "PUERTO_SEEDS");
 	config_MP.RETARDO_MEM = get_campo_config_int(archivo_configuracion,"RETARDO_MEM");
@@ -146,26 +148,27 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			strcpy(nombre_tabla,argumento[0]);
 			int key = atoi(argumento[1]);
 			// liberar_argumentos(char** argumento);
-
+			pthread_mutex_lock(&mutex_logger);
 			log_debug(logger, "SELECT %s %d\n", nombre_tabla, key);
+			pthread_mutex_unlock(&mutex_logger);
 
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
-
+			pthread_mutex_lock(&mutex_logger);
 			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
+			pthread_mutex_unlock(&mutex_logger);
+			free(nombre_tabla);
 
 			//Si el segmento NO existe ejecuta el if
 			if(segmento_buscado == NULL)
 				return "La tabla no existe";
 
-			char* new_value = malloc(tamanio_value);
-			new_value = NULL;
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key)->pagina;
-			if(pagina_buscada != NULL)
+			t_registro* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			if(pagina_buscada != NULL){
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-				strcpy(new_value, pagina_buscada->value);
-				return string_from_format("El value es: %s", new_value);
+				return string_from_format("El value es: %s", pagina_buscada->pagina->value);
+			}
 
 			t_list* lista_strings = list_create();
 			// for(int i=0; argumento[i] != NULL;i++)
@@ -176,7 +179,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 			if(paquete_recibido->codigo_operacion == cop_ok){
 				int desplazamiento = 0;
-				new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
+				char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
 				solicitar_pagina(segmento_buscado->tabla,new_value,key,NO_MODIFICADO);
 				return string_from_format("El value es: %s", new_value);
 			}
@@ -191,9 +194,10 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		{
 			if(argumento[0]== NULL || argumento[1]== NULL || argumento[2] == NULL)
 				return "Campos invalidos";
+			/*
 			if(!isdigit(argumento[1]))
 				return "Key no numerica";
-
+			*/
 			nombre_tabla = malloc(size_of_string(argumento[0]));
 			string_to_upper(argumento[0]);
 			strcpy(nombre_tabla,argumento[0]);
@@ -203,7 +207,9 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
+			pthread_mutex_lock(&mutex_logger);
 			log_debug(logger, "INSERT %s %d %s\n", nombre_tabla, key, value);
+			pthread_mutex_unlock(&mutex_logger);
 
 			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
 
@@ -216,12 +222,16 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 			t_registro* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
 			if(pagina_buscada != NULL){
+				pthread_mutex_lock(&mutex_logger);
 				log_debug(logger,"Key encontrada. Actualizando value y Timestamp\n");
+				pthread_mutex_unlock(&mutex_logger);
 				actualizar_pagina(pagina_buscada, value);
 				return string_from_format("Value Actualizado: %s\n Timestamp: %d", pagina_buscada->pagina->value, pagina_buscada->pagina->timestamp);
 			}
 			else{
+				pthread_mutex_lock(&mutex_logger);
 				log_debug(logger,"Key no encontrada\n");
+				pthread_mutex_unlock(&mutex_logger);
 				t_pagina* nueva_pagina = solicitar_pagina(segmento_buscado->tabla, value, key, MODIFICADO);
 				return string_from_format("Nueva key creada: %d\n Value: %s\n Timestamp: %d", nueva_pagina->key, nueva_pagina->value, nueva_pagina->timestamp);
 			}
@@ -229,8 +239,27 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		break;
 
 		case CREATE:
-			printf("hacer CREATE\n");
-			break;
+		{
+			pthread_mutex_lock(&mutex_logger);
+			log_debug(logger, "INSERT %s %s %s %s\n", argumento[0], argumento[1], argumento[2], argumento[3]);
+			pthread_mutex_unlock(&mutex_logger);
+
+			t_list* lista_argumentos = list_create();
+			for(int i=0;i < 4;i++)
+				list_add(lista_argumentos, argumento[i]);
+
+			enviar_listado_de_strings(socket_FS,lista_argumentos,SELECT);
+			t_paquete* paquete_recibido = recibir(socket_FS);
+
+			if(paquete_recibido->codigo_operacion == cop_ok)
+				return "Tabla creada exitosamente";
+			else if(paquete_recibido->codigo_operacion == codigo_error)
+				return "La tabla ya existe!!";
+
+			return "Recibí cualquier cosa";
+		}
+		break;
+
 		case DESCRIBE:
 			printf("hacer DESCRIBE\n");
 			break;
@@ -462,7 +491,7 @@ void iniciar_servidor_select(){
     pthread_exit(NULL);
 }
 
-void iniciar_gossiping(){
+/*void iniciar_gossiping(){
 	t_list* tabla_gossiping = list_create();
 	int cantidad_seeds;
 	for(cantidad_seeds=0;config_MP.PUERTO_SEEDS[cantidad_seeds] != NULL && config_MP.IP_SEEDS[cantidad_seeds] != NULL;cantidad_seeds++);
@@ -492,7 +521,7 @@ void iniciar_gossiping(){
 	log_debug(logger, "Tabla de gossiping inicializada\n");
 
 
-	/*
+
 	t_gossip memoria_actual;
 	while(1){
 		for(int i=0; ;i++){
@@ -501,9 +530,10 @@ void iniciar_gossiping(){
 		}
 		sleep(config_MP.RETARDO_GOSSIPING);
 	}
-	*/
+
 	pthread_exit(NULL);
 }
+*/
 
 
 /*
