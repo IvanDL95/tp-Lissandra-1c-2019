@@ -136,7 +136,9 @@ int conectar_con_Memoria(){
 
 void parsear_archivo_lql(char* path_archivo_lql) {
 	char sentencia_lql[1000];
-	char* comando[5];
+	char* comando[20];
+	char* string_value;
+	char* aux;
 	FILE *archivo_lql;
 
 	if ((archivo_lql = fopen(path_archivo_lql, "r")) == NULL)
@@ -148,18 +150,34 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 	while ( fgets ( sentencia_lql, sizeof(sentencia_lql), archivo_lql ) != NULL ) {
 		printf("Data from the file: %s \n", sentencia_lql);
 		log_info(logger, sentencia_lql);
+		aux = calloc(strlen(sentencia_lql)+1, sizeof(char));
+		strcpy(aux, sentencia_lql);
 		int j=0;
 		comando[j] = strtok(sentencia_lql, " ");
-		while(comando[j] != NULL && j < 5) {
+		while(comando[j] != NULL && j < 20) {
 			j++;
 			comando[j] = strtok(NULL, " ");
 		}
+
 		char* argumentos[4];
 		for(int i=0;i<4 && comando[i+1] != NULL;i++){
 			argumentos[i] = comando[i+1];
 		}
 		string_to_upper(comando[0]);
+
+		printf("\nComando : %s\n", comando[0]);
+
 		command_api operacion = convertir_commando(comando[0]);
+
+		printf("\nCod Op : %i\n", operacion);
+
+		if(operacion == INSERT) {
+			string_value = strtok(aux, "\"");
+			string_value = strtok(NULL, "\"");
+			strcpy(argumentos[2], string_value);
+			argumentos[3] = NULL;
+		}
+
 		ejecutar_API(operacion, argumentos);
 	}
 //	while ( archivo_lql != NULL ) {
