@@ -73,6 +73,7 @@ int crearDirectorioTabla(char* nombreTabla,char* path){
 	return 1;
 }
 
+
 int crearDirectorioBloques(char* pathBloques){
 	int e = 0;
 	pathBloques=malloc(50);

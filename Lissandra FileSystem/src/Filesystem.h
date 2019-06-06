@@ -24,6 +24,7 @@ typedef struct{
 
 }tInfoMetadata;
 
+
 typedef struct{
 	int timestamp;
 	int clave;
