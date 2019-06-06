@@ -21,7 +21,7 @@
 #define CANTIDAD_FRAMES config_MP.TAM_MEM/TAMANIO_PAGINA
 
 static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
-void iniciar_gossiping();
+//void iniciar_gossiping();
 void iniciar_servidor_select();
 
 int conectarse_con_FS();
@@ -239,8 +239,27 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		break;
 
 		case CREATE:
-			printf("hacer CREATE\n");
-			break;
+		{
+			pthread_mutex_lock(&mutex_logger);
+			log_debug(logger, "INSERT %s %s %s %s\n", argumento[0], argumento[1], argumento[2], argumento[3]);
+			pthread_mutex_unlock(&mutex_logger);
+
+			t_list* lista_argumentos = list_create();
+			for(int i=0;i < 4;i++)
+				list_add(lista_argumentos, argumento[i]);
+
+			enviar_listado_de_strings(socket_FS,lista_argumentos,SELECT);
+			t_paquete* paquete_recibido = recibir(socket_FS);
+
+			if(paquete_recibido->codigo_operacion == cop_ok)
+				return "Tabla creada exitosamente";
+			else if(paquete_recibido->codigo_operacion == codigo_error)
+				return "La tabla ya existe!!";
+
+			return "Recibí cualquier cosa";
+		}
+		break;
+
 		case DESCRIBE:
 			printf("hacer DESCRIBE\n");
 			break;
@@ -472,7 +491,7 @@ void iniciar_servidor_select(){
     pthread_exit(NULL);
 }
 
-void iniciar_gossiping(){
+/*void iniciar_gossiping(){
 	t_list* tabla_gossiping = list_create();
 	int cantidad_seeds;
 	for(cantidad_seeds=0;config_MP.PUERTO_SEEDS[cantidad_seeds] != NULL && config_MP.IP_SEEDS[cantidad_seeds] != NULL;cantidad_seeds++);
@@ -502,7 +521,7 @@ void iniciar_gossiping(){
 	log_debug(logger, "Tabla de gossiping inicializada\n");
 
 
-	/*
+
 	t_gossip memoria_actual;
 	while(1){
 		for(int i=0; ;i++){
@@ -511,9 +530,10 @@ void iniciar_gossiping(){
 		}
 		sleep(config_MP.RETARDO_GOSSIPING);
 	}
-	*/
+
 	pthread_exit(NULL);
 }
+*/
 
 
 /*
