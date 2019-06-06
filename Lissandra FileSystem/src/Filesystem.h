@@ -16,8 +16,6 @@ typedef struct{
 
 }tParticion;
 
-
-
 typedef struct{
 
 	char* consistency;
