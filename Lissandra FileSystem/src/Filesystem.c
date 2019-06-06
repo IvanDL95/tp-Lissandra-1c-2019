@@ -24,25 +24,9 @@ int montarFS(pathTablas,pathBloques){
 		crearDirectorioTablas(pathTablas);
 		crearDirectorioBloques(pathBloques);
 
-		/*if (e != 0) {
-			log_error(logger,
-					"Se produjo un error al crear el directorio. [%d - %s]",
-					errno, strerror(errno));
-			puts("ERROR: Se produjo un error al crear el directorio.");
-			return 0;
-		} else
-			//e==0
-			log_info(logger, "El directorio se creó satisfactoriamente.");
-	} else { //
-		log_error(logger,
-				"Se produjo un error accediendo al punto de montaje. [%d - %s]",
-				errno, strerror(errno));
-		puts("ERROR: Se produjo un error accediendo al punto de montaje.");
-		return 0;
-	}*/
 	}
 
-	return 1;
+	return e;
 
 
 }
@@ -108,7 +92,7 @@ int crearDirectorioBloques(char* pathBloques){
 
 }
 
-void OperacionSelect(char* nombreTabla, int key) {
+void operacionSelect(char* nombreTabla, int key) {
 
 //Abrir directorio de la tabla pasada por parametro, si existe
 	//Leer la metadata de esa tabla asi, para obtener el valor de la cantidad de particiones
@@ -145,15 +129,13 @@ void OperacionSelect(char* nombreTabla, int key) {
 	strcat(pathTabla,nombreTabla);
 
 
-	DIR* directorioTabla;
-
 
 	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
 	strcat(pathBloques,"Bloques/");
 
 	strcpy(pathMetadata,pathTabla);
 	strcat(pathMetadata,"/metadata.txt");
-	leerMetadata(metadata, "/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt");
+	leerMetadata(metadata, pathMetadata);
 
 	infoMetadata->consistency = dictionary_get(metadata, "CONSISTENCIA");
 	infoMetadata->particiones = dictionary_get(metadata, "PARTICIONES");
@@ -192,9 +174,9 @@ void OperacionSelect(char* nombreTabla, int key) {
 void leerMetadata(t_dictionary* metadata, char* pathMetadata) {
 	struct stat infoArchivo;
 	metadata = dictionary_create();
-	FILE* archivoMetadata = fopen("/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt", "rw");
+	FILE* archivoMetadata = fopen(pathMetadata, "rw");
 
-	stat("/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt", &infoArchivo);
+	stat(pathMetadata, &infoArchivo);
 
 	char* buffer = calloc(1, infoArchivo.st_size + 1);
 	//char* buffer = calloc(1, 100); //MODIFICAR EL SEGUNDO PARAMETRO
