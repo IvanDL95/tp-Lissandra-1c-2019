@@ -92,6 +92,8 @@ int crearDirectorioBloques(char* pathBloques){
 
 }
 
+
+
 void operacionSelect(char* nombreTabla, int key) {
 
 //Abrir directorio de la tabla pasada por parametro, si existe
