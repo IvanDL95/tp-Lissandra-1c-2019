@@ -165,11 +165,7 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 		}
 		string_to_upper(comando[0]);
 
-		printf("\nComando : %s\n", comando[0]);
-
 		command_api operacion = convertir_commando(comando[0]);
-
-		printf("\nCod Op : %i\n", operacion);
 
 		if(operacion == INSERT) {
 			string_value = strtok(aux, "\"");
