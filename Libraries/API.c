@@ -5,6 +5,8 @@ void iniciar_consola(t_log* logger) {
 
 	log_info(logger, "Iniciando Consola\n"); //Me tiene que importar si se desincroniza el log? No creo que importe
 	char* comando[5];
+	char* string_value;
+	char* aux;
 	char* command_quit = "Quit";
 	while (1) {
 		char* comando_consola = readline("Kernel_bash:>");
@@ -13,6 +15,8 @@ void iniciar_consola(t_log* logger) {
 			break;
 		} else {
 			log_info(logger, comando_consola);
+			aux = calloc(strlen(comando_consola)+1, sizeof(char));
+			strcpy(aux, comando_consola);
 			int j=0;
 			comando[j] = strtok(comando_consola, " ");
 			while(comando[j] != NULL && j < 5) {
@@ -25,6 +29,15 @@ void iniciar_consola(t_log* logger) {
 			}
 			string_to_upper(comando[0]);
 			command_api operacion = convertir_commando(comando[0]);
+
+			if(operacion == INSERT) {
+				string_value = strtok(aux, "\"");
+				string_value = strtok(NULL, "\"");
+				strcpy(argumentos[2], string_value);
+				argumentos[3] = NULL;
+			}
+
+
 			char* mensaje_retorno = ejecutar_API(operacion, argumentos);
 
 			if(mensaje_retorno != NULL)
