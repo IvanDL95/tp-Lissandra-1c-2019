@@ -1,0 +1,4 @@
+#Prueba Error Kernel + Memoria
+BLOCK_SIZE=32
+BLOCKS=2048
+MAGIC_NUMBER=LISSANDRA
