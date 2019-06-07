@@ -7,8 +7,18 @@
 
 #include "Filesystem.h"
 
+int montarFS(char* pathTablas,char* pathBloques);
+int crearDirectorioTablas(char* pathTablas);
+int crearDirectorioTabla(char* nombreTabla,char* path);
+int crearDirectorioBloques(char* pathBloques);
+void leerMetadata(t_dictionary* metadata, char* pathMetadata);
+int calcularParticionObjetivo(int key, int cantParticiones);
+void crearListaDeBloques(tParticion* particion, t_list* bloquesParticion);
+void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
+		t_list* clavesEncontradas);
 
-int montarFS(pathTablas,pathBloques){
+
+int montarFS(char* pathTablas,char *pathBloques){
 	int e;
 	struct stat info;
 
@@ -138,21 +148,21 @@ void operacionSelect(char* nombreTabla, int key) {
 	strcat(pathMetadata,"/metadata.txt");
 	leerMetadata(metadata, pathMetadata);
 
-	infoMetadata->consistency = dictionary_get(metadata, "CONSISTENCIA");
-	infoMetadata->particiones = dictionary_get(metadata, "PARTICIONES");
-	infoMetadata->tiempoCompactacion = dictionary_get(metadata,
+	infoMetadata->consistency = (char*)dictionary_get(metadata, "CONSISTENCIA");
+	infoMetadata->particiones = *(int*)dictionary_get(metadata, "PARTICIONES");
+	infoMetadata->tiempoCompactacion = *(int*)dictionary_get(metadata,
 			"TIEMPO_COMPACTACION");
 
 	particionObjetivo = calcularParticionObjetivo(key,
 			infoMetadata->particiones);
 
 	strcpy(pathParticion, pathTablaActual);
-	strcat(pathParticion, (char*) key);
+	strcat(pathParticion, string_itoa(key));
 
 	t_config* cParticion = config_create(pathParticion);
 
 	particion->tamanio = config_get_int_value(cParticion, "TAMANIO");
-	particion->bloques = config_get_int_value(cParticion, "BLOQUES");
+	*particion->bloques = config_get_int_value(cParticion, "BLOQUES");
 
 	crearListaDeBloques(particion, bloques);
 
@@ -162,8 +172,8 @@ void operacionSelect(char* nombreTabla, int key) {
 	strcpy(pathBloqueActual, pathBloques);
 
 	for (i = 0; i < bloques->elements_count; i++) {
-		int bloque = list_get(bloques, i);
-		strcat(pathBloqueActual, (char*) bloque);
+		int bloque = *(int*)list_get(bloques, i);
+		strcat(pathBloqueActual, string_itoa(bloque));
 		buscarEnArchivoDeBloque(pathBloqueActual, key, bloque,
 				clavesEncontradas);
 	}
@@ -228,7 +238,8 @@ void crearListaDeBloques(tParticion* particion, t_list* bloquesParticion) {
 
 			if (bloques[i] != NULL) {
 				printf("Valor: %s\n", bloques[i]);
-				list_add(bloquesParticion, atoi(bloques[i]));
+				int bloque = atoi(bloques[i]);
+				list_add(bloquesParticion, &bloque);
 				i++;
 			} else
 				break;
@@ -260,7 +271,7 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 
 		void agregarInfoBloque(char* linea) {
 			char** propiedadValor = string_n_split(linea, 3, "=");
-			entrada->clave = propiedadValor[1];
+			entrada->clave = atoi(propiedadValor[1]);
 
 			if (entrada->clave == key) {
 				list_add(clavesEncontradas, entrada);
