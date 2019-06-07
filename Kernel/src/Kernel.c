@@ -30,7 +30,7 @@ int main(int argc, char** argv){
 	if (conectar_con_Memoria() == -1) return -1;
 
 
-	iniciar_consola(logger); //Moví la estructura de consola a otro archivo, testeado y funciona
+	iniciar_consola(logger);
 
 
 	terminar_programa(logger,NULL);
