@@ -58,6 +58,7 @@ void get_configuracion(char* ruta){
 }
 
 char* ejecutar_API(command_api operacion, char** argumentos){
+	char* log_message;
 	log_debug(logger, "Ejecutando la API\n");
 	t_list * lista_argumentos = list_create();
 	int i = 0;
@@ -93,9 +94,9 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			printf("\nEjecutando ADD\n");
 			break;
 		case RUN:
-			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL\n");
-			printf("\nArchivo a Parsear : %s\n", argumentos[0]);
-			parsear_archivo_lql(argumentos[0]);
+			//log_message = strcat("Ejecutando RUN - Parseando Archivo LQL");
+			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL");
+			pthread_create(&thread_parser, NULL, (void*) parsear_archivo_lql, argumentos[0]);
 			break;
 		case METRICS:
 			printf("\nEjecutando METRICS\n");
@@ -145,7 +146,7 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 	{
 		log_error(logger, "No se pudo abrir el Archivo : %s", path_archivo_lql);
 		// Program exits if file pointer returns NULL.
-		return;
+		//return;
 	}
 	while ( fgets ( sentencia_lql, sizeof(sentencia_lql), archivo_lql ) != NULL ) {
 		printf("Data from the file: %s \n", sentencia_lql);
@@ -181,7 +182,7 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 //
 //  }
 	fclose(archivo_lql);
-	return;
+	//return;
 }
 
 

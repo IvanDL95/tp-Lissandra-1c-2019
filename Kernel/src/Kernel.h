@@ -15,7 +15,7 @@
 #include <Libraries.h>
 #include <API.h>
 #include <commons/log.h>
-
+#include <commons/collections/queue.h>
 
 typedef enum API command_api;
 
@@ -44,6 +44,10 @@ void mostrarMetricas();
 //void iniciar_consola();
 
 //command_api convertir_commando(char*);
+
+pthread_t thread_parser;
+
+t_queue queue_Ready;
 
 #endif /* SRC_KERNEL_H_ */
 
