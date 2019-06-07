@@ -11,3 +11,8 @@ Las request pueden llegar a este componente de dos formas posibles:
 La consola verifica que el primer argumento de la query se corresponda a algunos de los comandos de la API
 SELECT, INSERT, CREATE, DESCRIBE, DROP, JOURNAL, ADD, RUN, METRICS.
 Agregué el comando Quit para salir de la consola. TAmbién lo hace cuando se presiona sólo Enter (No hay query).
+
+## Test de archivo lql
+
+ejecutar en la consola
+run ../prueba.lql
