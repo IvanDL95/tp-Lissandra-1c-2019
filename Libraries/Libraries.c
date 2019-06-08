@@ -460,15 +460,3 @@ void terminar_programa(t_log* log_file, int *socket){
 	exit(EXIT_SUCCESS);
 }
 
-/*
-un_socket levantar_servidor(uint32_t IP, uint16_t PORT){
-
-	un_socket socket_listener = socket_escucha(IP, PORT);
-    if (listen(socket_listener, 10) == -1) {
-        perror("listen");
-        exit(1);
-    }
-
-    return socket_listener;
-}
-*/
