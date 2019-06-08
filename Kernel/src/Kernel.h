@@ -29,6 +29,14 @@ typedef struct {
 	int METADATA_REFRESH;
 } Configuracion_Kernel;
 
+enum Criterios_Memoria{
+	Null,
+	SC, //Criterio Strong Consistency
+	SHC, //Criterio Strong-Hash Consistency
+	EC //Criterio Eventual Consistency
+};
+
+typedef enum Criterios_Memoria criterio_memoria;
 Configuracion_Kernel config_Kernel;
 
 un_socket socket_Memoria = 0;
@@ -40,6 +48,8 @@ int conectar_con_Memoria();
 void parsear_archivo_lql(char*);
 
 void mostrarMetricas();
+
+void asignar_Criterios_Memoria();
 
 //void iniciar_consola();
 

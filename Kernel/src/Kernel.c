@@ -29,6 +29,7 @@ int main(int argc, char** argv){
 
 	if (conectar_con_Memoria() == -1) return -1;
 
+	asignar_Criterios_Memoria();
 
 	iniciar_consola(logger);
 
@@ -94,7 +95,6 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			printf("\nEjecutando ADD\n");
 			break;
 		case RUN:
-			//log_message = strcat("Ejecutando RUN - Parseando Archivo LQL");
 			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL");
 			pthread_create(&thread_parser, NULL, (void*) parsear_archivo_lql, argumentos[0]);
 			break;
@@ -133,6 +133,9 @@ int conectar_con_Memoria(){
 	return 0;
 }
 
+void asignar_Criterios_Memoria() {
+
+}
 //------------ Funciones de API ------------
 
 void parsear_archivo_lql(char* path_archivo_lql) {
