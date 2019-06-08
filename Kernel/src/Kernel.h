@@ -36,6 +36,12 @@ enum Criterios_Memoria{
 	EC //Criterio Eventual Consistency
 };
 
+typedef struct {
+	int id;
+	char *ip;
+	int puerto;
+} t_memorias;
+
 typedef enum Criterios_Memoria criterio_memoria;
 Configuracion_Kernel config_Kernel;
 

@@ -135,8 +135,11 @@ int conectar_con_Memoria(){
 
 void asignar_Criterios_Memoria() {
 
+
 }
-//------------ Funciones de API ------------
+
+
+//------------ Funciones de API ------------//
 
 void parsear_archivo_lql(char* path_archivo_lql) {
 	char sentencia_lql[1000];
