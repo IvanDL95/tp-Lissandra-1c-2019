@@ -280,9 +280,10 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 static void inicializar_memoria(){
 	memoria_principal = calloc(CANTIDAD_FRAMES,TAMANIO_PAGINA);
-	for(int i=0;i<CANTIDAD_FRAMES;i++)
+	for(int i=0;i<CANTIDAD_FRAMES;i++){
 		memoria_principal[i].value = malloc(TAMANIO_PAGINA);
-
+		memoria_principal[i].key = 0;
+	}
 	log_debug(logger, "Malloc memoria exitoso\n");
 
 	tabla_segmentos = list_create();
@@ -323,7 +324,7 @@ t_pagina* solicitar_pagina(tabla_paginas page_table, const char* valor, int key,
 
 
 	for(int i=0;i<CANTIDAD_FRAMES;i++){
-		if(&(memoria_principal[i]) == NULL){
+		if((memoria_principal[i].key) = 0){
 			log_trace(logger,"Frame libre!: %d\n",i);
 
 			memoria_principal[i].key= key;
