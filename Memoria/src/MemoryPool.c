@@ -221,7 +221,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			free(nombre_tabla);
 
 			t_registro* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
-			if(pagina_buscada == NULL){
+			if(pagina_buscada != NULL){
 				pthread_mutex_lock(&mutex_logger);
 				log_debug(logger,"Key encontrada. Actualizando value y Timestamp\n");
 				pthread_mutex_unlock(&mutex_logger);
@@ -323,7 +323,7 @@ t_pagina* solicitar_pagina(tabla_paginas page_table, const char* valor, int key,
 
 
 	for(int i=0;i<CANTIDAD_FRAMES;i++){
-		if(&(memoria_principal[i]) != NULL){
+		if(&(memoria_principal[i]) == NULL){
 			log_trace(logger,"Frame libre!: %d\n",i);
 
 			memoria_principal[i].key= key;
