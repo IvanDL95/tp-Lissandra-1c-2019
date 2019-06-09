@@ -170,16 +170,7 @@ int main(int argc, char** argv){
 	strcat(pathTablas,"Tables/");
 	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
 	strcat(pathBloques,"Bloques/");
-	t_list* lista=list_create();
 
-	leerTemporales("/home/utnso/LISSANDRA_FS/Tables/Table1/",1,lista);
-	//valorBuscado=operacionSelect("Table1",1);
-
-	//leerMetadata(metadata,"/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt");
-
-	//leerMetadata(metadata,"/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt");
-
-/*
 	pthread_t hilo_consola;
 
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
@@ -202,7 +193,7 @@ int main(int argc, char** argv){
         pthread_create(&hilo_Server,&hilo_attr_Server,(void*)analizar_paquete,&nuevo_cliente);
 
     }
-	terminar_programa(logger, &socket_servidor);*/
+	terminar_programa(logger, &socket_servidor);
 }
 
 void get_configuracion(char* ruta){
