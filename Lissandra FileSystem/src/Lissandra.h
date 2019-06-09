@@ -15,7 +15,8 @@
 #include <Libraries.h>
 #include <API.h>
 #include <commons/log.h>
-
+#include <stdio.h>
+#include <dirent.h>
 #define IP "127.0.0.1"
 
 
@@ -29,9 +30,45 @@ typedef struct {
 	unsigned int TIEMPO_DUMP;
 } Configuracion_LS;
 
+typedef struct{
+	int tamanio;
+	char* bloques;
+
+}tParticion;
+
+typedef struct{
+
+	char* consistency;
+	int particiones;
+	int tiempoCompactacion;
+
+}tInfoMetadata;
+
+typedef struct{
+	int timestamp;
+	int clave;
+	char* valor;
+
+}tEntrada;
+
+typedef struct{
+
+	char* nombreTabla;
+	int timestamp;
+	int clave;
+	char* valor;
+
+
+}tEntradaMemTable;
+
+char* pathTablas;
+char* pathBloques;
+
 Configuracion_LS config_LS;
 
 un_socket socket_MEM;
+
+t_list* memTable;
 
 pthread_t hilo_Server;
 pthread_attr_t hilo_attr_Server;

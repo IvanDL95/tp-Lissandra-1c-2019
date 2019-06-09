@@ -84,6 +84,7 @@ int crearDirectorioTabla(char* nombreTabla,char* path){
 }
 
 
+
 int crearDirectorioBloques(char* pathBloques){
 	int e = 0;
 	pathBloques=malloc(50);
@@ -103,96 +104,46 @@ int crearDirectorioBloques(char* pathBloques){
 
 }
 
-void operacionSelect(char* nombreTabla, int key) {
+int crearDirectorioMetadata(){
+	int e=0;
+	char* pathMetadata=malloc(60);
+	strcpy(pathMetadata, config_LS.PUNTO_MONTAJE);
+	strcat(pathMetadata, "Metadata");
+	e=mkdir(pathMetadata, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 
-//Abrir directorio de la tabla pasada por parametro, si existe
-	//Leer la metadata de esa tabla asi, para obtener el valor de la cantidad de particiones
+	if(e!=0){
+		log_error(logger,"Error al crear el directorio Metadata");
+		return 0;
 
-	//con el valor del total de particiones, calculo en que particion se encuentra
-//leer la particion y guardarme el dato (en una lista de valores)
-	//escanear archivos temporales y la mem table y guardar tambien en la lista de valores
-	//devolver el que tenga el timestamp mas chcio
+	}else
+		log_info(logger,"Directorio creado");
 
-	//
-	FILE* archivo;
-	tInfoMetadata* infoMetadata = malloc(sizeof(tInfoMetadata));
-	infoMetadata->consistency = malloc(5);
-	char* pathMetadata = malloc(10);
-	pathTablas = malloc(50);
-	pathBloques = malloc(50);
-	char* pathTablaActual = malloc(50);
-	t_dictionary* metadata = dictionary_create(); // DICT INFO METADATA
-	int particionObjetivo;
-	struct stat info;
-	char* pathParticion = malloc(50);
-	tParticion* particion = malloc(sizeof(tParticion));
-	t_list* bloques = list_create();
-	t_list* clavesEncontradas = list_create();
-	int i;
-
-
-	char* pathTabla = malloc(100);
-
-	strcpy(pathTablas,config_LS.PUNTO_MONTAJE);
-	strcat(pathTablas,"Tablas/");
-
-	strcpy(pathTabla,pathTablas);
-	strcat(pathTabla,nombreTabla);
-
-
-
-	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
-	strcat(pathBloques,"Bloques/");
-
-	strcpy(pathMetadata,pathTabla);
-	strcat(pathMetadata,"/metadata.txt");
-	leerMetadata(metadata, pathMetadata);
-
-	infoMetadata->consistency = (char*)dictionary_get(metadata, "CONSISTENCIA");
-	infoMetadata->particiones = *(int*)dictionary_get(metadata, "PARTICIONES");
-	infoMetadata->tiempoCompactacion = *(int*)dictionary_get(metadata,
-			"TIEMPO_COMPACTACION");
-
-	particionObjetivo = calcularParticionObjetivo(key,
-			infoMetadata->particiones);
-
-	strcpy(pathParticion, pathTablaActual);
-	strcat(pathParticion, string_itoa(key));
-
-	t_config* cParticion = config_create(pathParticion);
-
-	particion->tamanio = config_get_int_value(cParticion, "TAMANIO");
-	*particion->bloques = config_get_int_value(cParticion, "BLOQUES");
-
-	crearListaDeBloques(particion, bloques);
-
-	//obtenerBloquesDelArchivo(pathParticion, key);
-
-	char* pathBloqueActual = malloc(50);
-	strcpy(pathBloqueActual, pathBloques);
-
-	for (i = 0; i < bloques->elements_count; i++) {
-		int bloque = *(int*)list_get(bloques, i);
-		strcat(pathBloqueActual, string_itoa(bloque));
-		buscarEnArchivoDeBloque(pathBloqueActual, key, bloque,
-				clavesEncontradas);
-	}
-
-	//abro el archivo metadata*/
-
+	return 1;
 }
+
 
 void leerMetadata(t_dictionary* metadata, char* pathMetadata) {
 	struct stat infoArchivo;
 	metadata = dictionary_create();
-	FILE* archivoMetadata = fopen(pathMetadata, "rw");
+	FILE* archivoMetadata;
+	int e;
 
-	stat(pathMetadata, &infoArchivo);
 
-	char* buffer = calloc(1, infoArchivo.st_size + 1);
+	archivoMetadata= fopen(pathMetadata, "r");
+
+	if(archivoMetadata==NULL){
+		printf("fopen fallo, errno = %d\n", errno);
+
+	}else printf("Archivo abierto exitosamente");
+
+
+
+	e=stat(pathMetadata, &infoArchivo);
+
+	char* buffer = calloc(1, 100);
 	//char* buffer = calloc(1, 100); //MODIFICAR EL SEGUNDO PARAMETRO
 
-	fread(buffer, infoArchivo.st_size, 1, archivoMetadata);
+	fread(buffer, 55, 1, archivoMetadata);
 
 	char** lineas = string_split(buffer, "\n");
 
@@ -229,7 +180,6 @@ void buscarEnArchivoBloque(char* path, int key) {
 
 void crearListaDeBloques(tParticion* particion, t_list* bloquesParticion) {
 
-	void crearListaMemoriasSeeds() {
 
 		char** bloques = string_split(particion->bloques, ",");
 		int i = 0;
@@ -239,26 +189,25 @@ void crearListaDeBloques(tParticion* particion, t_list* bloquesParticion) {
 			if (bloques[i] != NULL) {
 				printf("Valor: %s\n", bloques[i]);
 				int bloque = atoi(bloques[i]);
-				list_add(bloquesParticion, &bloque);
+				list_add(bloquesParticion, bloque);
 				i++;
 			} else
 				break;
 		}
 		free(bloques);
 	}
-}
+
 
 void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
-		t_list* clavesEncontradas) {
+		t_list* registrosEncontrados) {
 
 	struct stat infoArchivo;
-	char* dirArchivoBloque = malloc(50);
+	char* dirArchivoBloque = malloc(60);
 	char* charUno = malloc(4);
 	strcpy(charUno, "1.bin");
 	strcat(pathBloqueActual, charUno);
 	char* bufferBloques = malloc(30);
-	t_list* entradasBloque = list_create();
-	tEntradaBloque* entrada = malloc(sizeof(tEntradaBloque));
+	tEntrada* entrada = malloc(sizeof(tEntrada));
 
 	FILE* arch = fopen(pathBloqueActual, "r");
 
@@ -270,15 +219,18 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 		char** lineas = string_split(bufferBloques, "\n");
 
 		void agregarInfoBloque(char* linea) {
-			char** propiedadValor = string_n_split(linea, 3, "=");
+			char** propiedadValor = string_n_split(linea, 3, ";");
+			entrada->timestamp = atoi(propiedadValor[0]);
 			entrada->clave = atoi(propiedadValor[1]);
+			entrada->valor = atoi(propiedadValor[2]);
+
 
 			if (entrada->clave == key) {
-				list_add(clavesEncontradas, entrada);
+				list_add(registrosEncontrados, entrada);
 
 			}
-			free(propiedadValor);
-			free(propiedadValor[1]);
+			//free(propiedadValor);
+			//free(propiedadValor[1]);
 
 		}
 
@@ -286,9 +238,52 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 		//string_iterate_lines(lineas, (void*) free);
 		agregarInfoBloque("100=1=casa");
 
-		free(entrada);
-		free(lineas);
-		free(bufferBloques);
+		//free(entrada);
+		//free(lineas);
+		//free(bufferBloques);
+		fclose(arch);
+	}
+
+}
+
+void buscarEnArchivoTemporal(char* pathArchivoTemporal, int key,t_list* registrosEncontrados) {
+
+	struct stat infoArchivo;
+	tEntrada* entrada = malloc(sizeof(tEntrada));
+	char* buffer=malloc(100);
+
+	FILE* arch = fopen(pathArchivoTemporal, "r");
+
+	stat(pathArchivoTemporal, &infoArchivo);
+
+	if (!(infoArchivo.st_size) == 0) {
+		fread(buffer, infoArchivo.st_size, 1, arch);
+
+		char** lineas = string_split(buffer, "\n");
+
+		void agregarInfoBloque(char* linea) {
+			char** propiedadValor = string_n_split(linea, 3, ";");
+			entrada->timestamp = atoi(propiedadValor[0]);
+			entrada->clave = atoi(propiedadValor[1]);
+			entrada->valor = atoi(propiedadValor[2]);
+
+
+			if (entrada->clave == key) {
+				list_add(registrosEncontrados, entrada);
+
+			}
+			//free(propiedadValor);
+			//free(propiedadValor[1]);
+
+		}
+
+		string_iterate_lines(lineas, agregarInfoBloque);
+		string_iterate_lines(lineas, (void*) free);
+		//agregarInfoBloque("100=1=casa");
+
+		//free(entrada);
+		//free(lineas);
+		//free(bufferBloques);
 		fclose(arch);
 	}
 
