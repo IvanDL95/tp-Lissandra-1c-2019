@@ -59,7 +59,6 @@ void get_configuracion(char* ruta){
 }
 
 char* ejecutar_API(command_api operacion, char** argumentos){
-	char* log_message;
 	log_debug(logger, "Ejecutando la API\n");
 	t_list * lista_argumentos = list_create();
 	int i = 0;
