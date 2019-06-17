@@ -17,6 +17,9 @@
 #include <commons/log.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <stdarg.h>
+#include <string.h>
+
 #define IP "127.0.0.1"
 
 
@@ -74,6 +77,9 @@ pthread_t hilo_Server;
 pthread_attr_t hilo_attr_Server;
 pthread_mutex_t mutex_mensaje;
 pthread_mutex_t mutex_logger;
+
+
+int operacionInsert(char* , int , char* ,int );
 
 #endif /* SRC_LISSANDRA_H_ */
 

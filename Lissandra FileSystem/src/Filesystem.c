@@ -136,8 +136,6 @@ void leerMetadata(t_dictionary* metadata, char* pathMetadata) {
 
 	}else printf("Archivo abierto exitosamente");
 
-
-
 	e=stat(pathMetadata, &infoArchivo);
 
 	char* buffer = calloc(1, 100);
@@ -203,11 +201,15 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 
 	struct stat infoArchivo;
 	char* dirArchivoBloque = malloc(60);
-	char* charUno = malloc(4);
-	strcpy(charUno, "1.bin");
-	strcat(pathBloqueActual, charUno);
+	//char* charUno = malloc(4);
+	//strcpy(charUno, "1.bin");
+	strcpy(pathBloqueActual, pathBloques);
+	strcat(pathBloqueActual, string_itoa(bloque));
+	strcat(pathBloqueActual, ".bin");
+
 	char* bufferBloques = malloc(30);
 	tEntrada* entrada = malloc(sizeof(tEntrada));
+	entrada->valor=malloc(20);
 
 	FILE* arch = fopen(pathBloqueActual, "r");
 
@@ -222,7 +224,7 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 			char** propiedadValor = string_n_split(linea, 3, ";");
 			entrada->timestamp = atoi(propiedadValor[0]);
 			entrada->clave = atoi(propiedadValor[1]);
-			entrada->valor = atoi(propiedadValor[2]);
+			strcpy(entrada->valor,propiedadValor[2]);
 
 
 			if (entrada->clave == key) {
@@ -234,13 +236,13 @@ void buscarEnArchivoDeBloque(char* pathBloqueActual, int key, int bloque,
 
 		}
 
-		//string_iterate_lines(lineas, agregarInfoBloque);
-		//string_iterate_lines(lineas, (void*) free);
-		agregarInfoBloque("100=1=casa");
+		string_iterate_lines(lineas, agregarInfoBloque);
+		string_iterate_lines(lineas, (void*) free);
+		agregarInfoBloque("100;1;casa");
 
-		//free(entrada);
-		//free(lineas);
-		//free(bufferBloques);
+		free(entrada);
+		free(lineas);
+		free(bufferBloques);
 		fclose(arch);
 	}
 
@@ -250,6 +252,8 @@ void buscarEnArchivoTemporal(char* pathArchivoTemporal, int key,t_list* registro
 
 	struct stat infoArchivo;
 	tEntrada* entrada = malloc(sizeof(tEntrada));
+	entrada->valor=malloc(20);
+
 	char* buffer=malloc(100);
 
 	FILE* arch = fopen(pathArchivoTemporal, "r");
@@ -265,7 +269,7 @@ void buscarEnArchivoTemporal(char* pathArchivoTemporal, int key,t_list* registro
 			char** propiedadValor = string_n_split(linea, 3, ";");
 			entrada->timestamp = atoi(propiedadValor[0]);
 			entrada->clave = atoi(propiedadValor[1]);
-			entrada->valor = atoi(propiedadValor[2]);
+			strcpy(entrada->valor,propiedadValor[2]);
 
 
 			if (entrada->clave == key) {
@@ -281,9 +285,9 @@ void buscarEnArchivoTemporal(char* pathArchivoTemporal, int key,t_list* registro
 		string_iterate_lines(lineas, (void*) free);
 		//agregarInfoBloque("100=1=casa");
 
-		//free(entrada);
-		//free(lineas);
-		//free(bufferBloques);
+		free(entrada);
+		free(lineas);
+		free(buffer);
 		fclose(arch);
 	}
 

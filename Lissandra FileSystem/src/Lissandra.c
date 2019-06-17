@@ -35,7 +35,24 @@ char* obtenerValorMayorTimestamp(t_list* registrosEncontrados){
 
 }
 
+asignarPathParticion(char* pathTablaActual, char* pathParticion,int key){
 
+	strcpy(pathParticion, pathTablaActual);
+	strcat(pathParticion, "/");
+	strcat(pathParticion, string_itoa(key));
+	strcat(pathParticion, ".bin");
+}
+
+void asignarPathsTabla(char* pathTablaActual,char* nombreTabla,int key,char* pathMetadata,char* pathParticion){
+
+	strcpy(pathTablaActual, pathTablas);
+	strcat(pathTablaActual, nombreTabla);
+
+	strcpy(pathMetadata, pathTablaActual);
+	strcat(pathMetadata, "/metadata.txt");
+
+
+}
 
 const char *extensionArchivo(const char *nombreArch) {
     const char *punto = strrchr(nombreArch, '.');
@@ -49,6 +66,8 @@ void leerTemporales(char* pathTablaActual,int key, t_list* entradasEncontradas){
 	struct dirent *ent;
 	char* pathArchTemporal=malloc(60);
 	strcpy(pathArchTemporal,pathTablaActual);
+	strcat(pathArchTemporal,"/");
+
 
 	if ((dir = opendir (pathTablaActual)) != NULL) {
 	  /* print all the files and directories within directory */
@@ -83,6 +102,48 @@ tEntrada* entrada=malloc(sizeof(tEntrada));
 	}
 
 }
+
+void listarMemTable(){
+	int i;
+	int posX=40;
+	printf("\033[%d;%dH%s\n", 30, 30, "MEM TABLE");
+	puts("----------------------------------------------------------------------------");
+	printf("\033[%d;%dH%s", posX, 20, "Tabla:");
+	printf("\033[%d;%dH%s", posX, 30, "T.Stamp:");
+	printf("\033[%d;%dH%s", posX, 40, "Clave:");
+	printf("\033[%d;%dH%s\n", posX, 50, "Valor:");
+
+
+	for(i=0;i<memTable->elements_count;i++){
+		posX=posX+20;
+		tEntradaMemTable* entrada= list_get(memTable,i);
+		printf("\033[%d;%dH%s", posX, 20, entrada->nombreTabla);
+		printf("\033[%d;%dH%d", posX, 30, entrada->timestamp);
+		printf("\033[%d;%dH%d", posX, 40, entrada->clave);
+		printf("\033[%d;%dH%s\n", posX,50, entrada->valor);
+
+
+	}
+}
+
+int crearYGrabarArchivoMetadata(char* path, tInfoMetadata* infoMetadata){
+	struct stat infoArchvo;
+	FILE* arch=fopen(path,"w");
+
+	if(arch==NULL){
+		log_error(logger, "Error al abrir el archivo");
+		return -1;
+
+	}else{
+		fwrite(&infoMetadata,sizeof(infoMetadata),1,arch);
+		return 1;
+	}
+	fclose(arch);
+
+
+}
+
+
 char* operacionSelect(char* nombreTabla,int key){
 	printf("%s\n",pathTablas);
 	char* pathTablaActual = malloc(80);
@@ -91,24 +152,9 @@ char* operacionSelect(char* nombreTabla,int key){
 	char* pathBloqueActual = malloc(80);
 	char* valorBuscado=malloc(10);
 	int i;
-	strcpy(pathTablaActual,pathTablas);
-	strcat(pathTablaActual,nombreTabla);
-	printf("%s\n",pathTablaActual);
 
-	strcpy(pathMetadata,pathTablaActual);
-	strcat(pathMetadata,"/metadata.txt");
-	printf("%s\n",pathMetadata);
-
-	strcpy(pathParticion, pathTablaActual);
-	strcat(pathParticion, "/");
-	printf("%s\n",pathParticion);
-	strcat(pathParticion, string_itoa(key));
-	printf("%s\n",pathParticion);
-	strcat(pathParticion, ".bin");
-	printf("%s\n",pathParticion);
-
-	strcpy(pathBloqueActual, pathBloques);
-	printf("%s\n",pathBloqueActual);
+	asignarPathsTabla(pathTablaActual,nombreTabla,key,pathMetadata,pathParticion);
+	asignarPathParticion(pathTablaActual,pathParticion,key);
 
 	tParticion* particion = malloc(sizeof(tParticion));
 	tInfoMetadata* infoMetadata = malloc(sizeof(tInfoMetadata));
@@ -153,6 +199,70 @@ char* operacionSelect(char* nombreTabla,int key){
 		return valorBuscado;
 
 	}
+
+	free(pathTablaActual);
+	free(pathMetadata);
+	free(pathParticion);
+	free(pathBloqueActual);
+	free(valorBuscado);
+}
+
+int operacionInsert(char* nombreTabla, int key, char* value, int timestamp ){
+	char* pathTablaActual = malloc(80);
+	char* pathMetadata = malloc(80);
+	char* pathParticion = malloc(80);
+	char* pathBloqueActual = malloc(80);
+
+	asignarPathsTabla(pathTablaActual,nombreTabla,key,pathMetadata,pathParticion);
+
+	int existe = existeTablaEnFS(pathTablaActual);
+
+	if(existe==1){
+
+		if(memTable->elements_count==0){
+			tEntradaMemTable* entrada=malloc(sizeof(tEntradaMemTable));
+			entrada->clave=key;
+			strcpy(entrada->nombreTabla,nombreTabla);
+			entrada->valor=value;
+
+			if(timestamp!=NULL){
+				entrada->timestamp=timestamp;
+			}else entrada->timestamp=(int)time(NULL);
+
+			list_add(memTable,entrada);
+
+			return 1;
+		}
+	}else return -1;
+
+	free(pathTablaActual);
+	free(pathMetadata);
+	free(pathParticion);
+	free(pathBloqueActual);
+}
+
+int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticiones, int tiempoCompactacion){
+	char* pathTablaActual = malloc(80);
+	char* pathMetadata = malloc(80);
+	char* pathParticion = malloc(80);
+	char* pathBloqueActual = malloc(80);
+	tInfoMetadata* infoMetadata=malloc(sizeof(tInfoMetadata));
+	strcpy(infoMetadata->consistency,tipoConsistencia);
+	infoMetadata->particiones=numParticiones;
+	infoMetadata->tiempoCompactacion=tiempoCompactacion;
+
+
+	asignarPathsTabla(pathTablaActual,nombreTabla,NULL,pathMetadata,pathParticion);
+
+	int existe = existeTablaEnFS(pathTablaActual);
+
+	if(existe==-1){
+
+		crearDirectorioTabla(nombreTabla,config_LS.PUNTO_MONTAJE);
+		crearYGrabarArchivoMetadata(pathMetadata,infoMetadata);
+
+	}else log_error(logger,"La tabla ya existe en el FS");
+
 }
 
 int main(int argc, char** argv){
@@ -171,6 +281,7 @@ int main(int argc, char** argv){
 	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
 	strcat(pathBloques,"Bloques/");
 
+
 	pthread_t hilo_consola;
 
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
@@ -187,7 +298,7 @@ int main(int argc, char** argv){
     log_info(logger, "Estoy escuchando\n");
 
     while(1) {  // main accept() loop
-        un_socket nuevo_cliente = aceptar_conexion(socket_servidor);
+        un_socket nuevo_cliente =  aceptar_conexion(socket_servidor);
 
         log_info(logger,"Me llegó una nueva conexión\n");
         pthread_create(&hilo_Server,&hilo_attr_Server,(void*)analizar_paquete,&nuevo_cliente);
@@ -327,10 +438,10 @@ int existeTablaEnFS(char* pathTabla){
 	if (e == 0) {
 
 		if (infoArch.st_mode & S_IFDIR)
-			log_info(logger,"Tabla encontrada en FS.");
+			//log_info(logger,"Tabla encontrada en FS.");
 		return 1;
 	}else {
-		log_error(logger,"La tabla no existe en el FS");
+		log_info(logger,"La tabla no existe en el FS");
 		return -1;
 	}
 
