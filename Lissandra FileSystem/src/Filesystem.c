@@ -9,7 +9,7 @@
 
 int montarFS(char* pathTablas,char* pathBloques);
 int crearDirectorioTablas(char* pathTablas);
-int crearDirectorioTabla(char* nombreTabla,char* path);
+int crearDirectorioTabla(char* nombreTabla);
 int crearDirectorioBloques(char* pathBloques);
 void leerMetadata(t_dictionary* metadata, char* pathMetadata);
 int calcularParticionObjetivo(int key, int cantParticiones);
@@ -67,8 +67,9 @@ int crearDirectorioTablas(char* pathTablas){
 }
 
 
-int crearDirectorioTabla(char* nombreTabla,char* path){
+int crearDirectorioTabla(char* nombreTabla){
 	int e=0;
+	char* path=malloc(60);
 	strcpy(path, pathTablas);
 	strcat(path, nombreTabla);
 	e=mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

@@ -49,7 +49,7 @@ void asignarPathsTabla(char* pathTablaActual,char* nombreTabla,int key,char* pat
 	strcat(pathTablaActual, nombreTabla);
 
 	strcpy(pathMetadata, pathTablaActual);
-	strcat(pathMetadata, "/metadata.txt");
+	strcat(pathMetadata, "/metadata.bin");
 
 
 }
@@ -129,13 +129,16 @@ void listarMemTable(){
 int crearYGrabarArchivoMetadata(char* path, tInfoMetadata* infoMetadata){
 	struct stat infoArchvo;
 	FILE* arch=fopen(path,"w");
+	char* propiedades=malloc(80);
+	sprintf(propiedades,"%s%s%s%s%d%s%s%d","CONSISTENCY=",infoMetadata->consistency,"\n","PARTICIONES=",infoMetadata->particiones,"\n","TIEMPO_COMPACTACION=",infoMetadata->tiempoCompactacion);
 
 	if(arch==NULL){
 		log_error(logger, "Error al abrir el archivo");
 		return -1;
 
 	}else{
-		fwrite(&infoMetadata,sizeof(infoMetadata),1,arch);
+		//fwrite(infoMetadata->consistency,sizeof(infoMetadata->consistency),1,arch);
+		fwrite(propiedades,strlen(propiedades),1,arch);
 		return 1;
 	}
 	fclose(arch);
@@ -246,7 +249,8 @@ int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticione
 	char* pathMetadata = malloc(80);
 	char* pathParticion = malloc(80);
 	char* pathBloqueActual = malloc(80);
-	tInfoMetadata* infoMetadata=malloc(sizeof(tInfoMetadata));
+	tInfoMetadata* infoMetadata=malloc(sizeof(tInfoMetadata)+10);
+	infoMetadata->consistency=malloc(4);
 	strcpy(infoMetadata->consistency,tipoConsistencia);
 	infoMetadata->particiones=numParticiones;
 	infoMetadata->tiempoCompactacion=tiempoCompactacion;
@@ -258,10 +262,14 @@ int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticione
 
 	if(existe==-1){
 
-		crearDirectorioTabla(nombreTabla,config_LS.PUNTO_MONTAJE);
+		crearDirectorioTabla(nombreTabla);
 		crearYGrabarArchivoMetadata(pathMetadata,infoMetadata);
 
 	}else log_error(logger,"La tabla ya existe en el FS");
+
+}
+
+int realizarCompactacion(){
 
 }
 
@@ -281,7 +289,8 @@ int main(int argc, char** argv){
 	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
 	strcat(pathBloques,"Bloques/");
 
-
+	operacionCreate("Table2","SC",10,2);
+/*
 	pthread_t hilo_consola;
 
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
@@ -304,7 +313,7 @@ int main(int argc, char** argv){
         pthread_create(&hilo_Server,&hilo_attr_Server,(void*)analizar_paquete,&nuevo_cliente);
 
     }
-	terminar_programa(logger, &socket_servidor);
+	terminar_programa(logger, &socket_servidor);*/
 }
 
 void get_configuracion(char* ruta){
