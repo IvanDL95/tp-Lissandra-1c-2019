@@ -16,12 +16,15 @@
 #include <API.h>
 #include <ClientServer.h>
 #include <commons/log.h>
+#include <commons/collections/queue.h>
 #include <commons/temporal.h>
 #include <pthread.h>
 #include <sys/time.h>
 #include <time.h>
 #include <sys/timeb.h>
 #define IP "127.0.0.1"
+#define TAMANIO_PAGINA (sizeof(int)+sizeof(time_t)+tamanio_value)
+#define CANTIDAD_FRAMES config_MP.TAM_MEM/TAMANIO_PAGINA
 
 t_log* logger;
 pthread_mutex_t mutex_logger;
@@ -51,6 +54,12 @@ typedef struct {
 
 Configuracion_MP config_MP;
 
+enum flag_full{
+	NOT_FULL,
+	FULL
+};
+
+typedef enum flag_full flag_full;
 
 enum bit_modificado{
 	NO_MODIFICADO,
@@ -63,13 +72,13 @@ typedef struct{
 	//TODO ver cuanto mide value luego de obtener el tamaño
 	int key;
 	time_t timestamp;
-	char* value;
-}t_pagina;
+	void* value;
+}t_frame;
 
 typedef struct{
-	t_pagina* pagina;
+	t_frame* pagina;
 	flag modificado;
-}t_registro;
+}t_pagina;
 
 typedef t_list* tabla_paginas;
 
@@ -83,10 +92,10 @@ t_list* tabla_segmentos;
 
 /* Memoria Principal */
 //Frame == ptr Página -> t_pagina
-typedef t_pagina t_frame;
 
 typedef t_frame* array_de_frames;
 array_de_frames memoria_principal;
 
+t_queue* cola_LRU;
 
 #endif /* SRC_MEMORYPOOL_H_ */
