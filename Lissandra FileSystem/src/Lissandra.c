@@ -176,8 +176,8 @@ char* operacionSelect(char* nombreTabla,int key){
 
 
 		infoMetadata->consistency=config_get_string_value(metadata,"CONSISTENCIA");
-		infoMetadata->consistency=config_get_string_value(metadata,"PARTICIONES");
-		infoMetadata->tiempoCompactacion = config_get_string_value(metadata,"TIEMPO_COMPACTACION");
+		infoMetadata->particiones=config_get_int_value(metadata,"PARTICIONES");
+		infoMetadata->tiempoCompactacion = config_get_int_value(metadata,"TIEMPO_COMPACTACION");
 
 		particionObjetivo = calcularParticionObjetivo(key,infoMetadata->particiones);
 
@@ -244,7 +244,7 @@ int operacionInsert(char* nombreTabla, int key, char* value, int timestamp ){
 	free(pathBloqueActual);
 }
 
-int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticiones, int tiempoCompactacion){
+void operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticiones, int tiempoCompactacion){
 	char* pathTablaActual = malloc(80);
 	char* pathMetadata = malloc(80);
 	char* pathParticion = malloc(80);
