@@ -15,19 +15,12 @@
 #include <Libraries.h>
 #include <API.h>
 #include <commons/log.h>
-#include <commons/collections/queue.h>
+#include "headers/structs.h"
+#include "Planificacion.h"
 
 typedef enum API command_api;
 
 t_log* logger;
-
-typedef struct {
-	char* IP_MEMORIA;
-	char* PUERTO_MEMORIA;
-	int QUANTUM;
-	int MULTIPROCESAMIENTO;
-	int METADATA_REFRESH;
-} Configuracion_Kernel;
 
 enum Criterios_Memoria{
 	Null,
@@ -42,12 +35,14 @@ typedef struct {
 	int puerto;
 } t_memorias;
 
-typedef enum Criterios_Memoria criterio_memoria;
-Configuracion_Kernel config_Kernel;
 
-un_socket socket_Memoria = 0;
+typedef enum Criterios_Memoria criterio_memoria;
+
+t_requestAMemoria requestAPlanificar;
 
 int tamanio_value;
+
+t_requestAMemoria crearEstructuraRequest(t_list*, command_api);
 
 int conectar_con_Memoria();
 
@@ -57,13 +52,8 @@ void mostrarMetricas();
 
 void asignar_Criterios_Memoria();
 
-//void iniciar_consola();
-
-//command_api convertir_commando(char*);
-
 pthread_t thread_parser;
 
-t_queue queue_Ready;
 
 #endif /* SRC_KERNEL_H_ */
 
