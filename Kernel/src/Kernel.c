@@ -85,19 +85,19 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			break;
 		case INSERT:
 			log_info(logger, "Enviando comando INSERT a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
 			break;
 		case CREATE:
 			log_info(logger, "Enviando comando CREATE a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
 			break;
 		case DESCRIBE:
 			log_info(logger, "Enviando comando DESCRIBE a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
 			break;
 		case DROP:
 			log_info(logger, "Enviando comando DROP a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
 			break;
 		case JOURNAL:
 			log_info(logger, "Ejecutar JOURNAL en cada Memoria Asociada\n");
