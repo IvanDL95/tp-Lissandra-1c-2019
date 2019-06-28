@@ -98,4 +98,9 @@ array_de_frames memoria_principal;
 
 t_queue* cola_LRU;
 
+typedef struct{
+	int nro_pagina;
+	char* nombre_tabla;
+}t_cola_LRU;
+
 #endif /* SRC_MEMORYPOOL_H_ */

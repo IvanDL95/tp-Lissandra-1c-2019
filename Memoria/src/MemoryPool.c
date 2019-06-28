@@ -24,12 +24,14 @@ int conectarse_con_FS();
 static void inicializar_memoria();
 t_segmento* crear_nuevo_segmento(char*);
 static void destruir_segmento(t_segmento*);
-t_pagina* buscar_key(tabla_paginas, int key);
-t_frame* solicitar_pagina(tabla_paginas, const char* value, int key, flag);
-static void actualizar_pagina(t_pagina*,const char* new_value);
+t_pagina* buscar_key(t_segmento*, int key);
+t_frame* solicitar_pagina(t_segmento*, const char* value, int key, flag);
+static void actualizar_pagina(char* tabla,t_pagina*,const char* new_value);
+static void actualizar_cola(int key, char* tabla);
 //static int asignar_key(tabla_paginas page_table);
 static void algoritmo_reemplazo();
 static void hacer_journal(flag_full);
+static void page_destroyer(t_pagina*);
 
 int main(int argc, char** argv){
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_TRACE);
@@ -162,7 +164,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			if(segmento_buscado == NULL)
 				return "La tabla no existe";
 
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+			t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
 			if(pagina_buscada != NULL){
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
 				char* selected_value = malloc(tamanio_value);
@@ -180,7 +182,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			if(paquete_recibido->codigo_operacion == cop_ok){
 				int desplazamiento = 0;
 				char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
-				solicitar_pagina(segmento_buscado->tabla,new_value,key,NO_MODIFICADO);
+				solicitar_pagina(segmento_buscado,new_value,key,NO_MODIFICADO);
 				return string_from_format("El value es: %s", new_value);
 			}
 			else if(paquete_recibido->codigo_operacion == codigo_error)
@@ -218,21 +220,23 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			else
 				log_debug(logger,"Ya existe la tabla\n");
 
-			free(nombre_tabla);
 
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado->tabla, key);
+
+			t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
 			if(pagina_buscada != NULL){
 				pthread_mutex_lock(&mutex_logger);
 				log_debug(logger,"Key encontrada. Actualizando value y Timestamp\n");
 				pthread_mutex_unlock(&mutex_logger);
-				actualizar_pagina(pagina_buscada, value);
+				actualizar_pagina(nombre_tabla,pagina_buscada, value);
+				free(nombre_tabla);
 				return string_from_format("Value Actualizado: %s\n Timestamp: %d", pagina_buscada->pagina->value, pagina_buscada->pagina->timestamp);
 			}
 			else{
 				pthread_mutex_lock(&mutex_logger);
 				log_debug(logger,"Key no encontrada\n");
 				pthread_mutex_unlock(&mutex_logger);
-				t_frame* nueva_pagina = solicitar_pagina(segmento_buscado->tabla, value, key, MODIFICADO);
+				t_frame* nueva_pagina = solicitar_pagina(segmento_buscado, value, key, MODIFICADO);
+				free(nombre_tabla);
 				return string_from_format("Nueva key creada: %d\n Value: %s\n Timestamp: %d", nueva_pagina->key, nueva_pagina->value, nueva_pagina->timestamp);
 			}
 		}
@@ -266,10 +270,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		case DROP:
 		{
 			log_debug(logger, "DROP\n %s", argumento[0]);
-			nombre_tabla = argumento[0];
-			t_segmento* segmento_a_destruir = (t_segmento*)list_remove_by_condition(tabla_segmentos,(void*)_is_equal_segmento);
-			destruir_segmento(segmento_a_destruir);
-			free(segmento_a_destruir);
+			list_remove_and_destroy_by_condition(tabla_segmentos,(void*)_is_equal_segmento,(void*)destruir_segmento);
 			return "Drop exitoso\n";
 		}
 		break;
@@ -313,27 +314,58 @@ t_segmento* crear_nuevo_segmento(char* nombre_tabla){
 }
 
 static void destruir_segmento(t_segmento* segmento_a_destruir){
-	unsigned int tam_page_table = list_size(segmento_a_destruir->tabla);
 	t_pagina* pagina_a_destruir = malloc(sizeof(t_pagina));
-		for(int i=0;i<tam_page_table;i++){
-			pagina_a_destruir = list_remove(segmento_a_destruir->tabla, i);
-			free(pagina_a_destruir->pagina);
-		}
-	list_destroy(segmento_a_destruir->tabla);
+
+	int is_seeked_key(t_cola_LRU* cola_element){
+		return cola_element->nro_pagina == pagina_a_destruir->pagina->key;
+	}
+
+	void cola_destroyer(t_cola_LRU* cola_element){
+		free(cola_element->nombre_tabla);
+		//free(cola_element);
+	}
+
+	for(int i=0;!list_is_empty(segmento_a_destruir->tabla);i++){
+		pagina_a_destruir = list_remove(segmento_a_destruir->tabla, i);
+		if(pagina_a_destruir == NULL)
+			continue;
+		list_remove_and_destroy_by_condition(cola_LRU->elements, (void*)is_seeked_key, (void*)cola_destroyer);
+	}
+	free(pagina_a_destruir);
+	list_destroy_and_destroy_elements(segmento_a_destruir->tabla,(void*)page_destroyer);
 	return;
 }
 
-t_pagina* buscar_key(tabla_paginas page_table, int key){
+static void page_destroyer(t_pagina* pagina_a_destruir){
+	int x = 0;
+	time_t y = 0;
+	memcpy(&pagina_a_destruir->pagina->key, &x,sizeof(int));
+	memcpy(&pagina_a_destruir->pagina->timestamp, &y,sizeof(time_t));
+	//memcpy(cola_element->registro->pagina->value,NULL,0);
+
+	free(pagina_a_destruir->pagina);
+	//free(pagina_a_destruir);?
+}
+
+t_pagina* buscar_key(t_segmento* segmento_encontrado, int key){
 	log_debug(logger,"Buscando key\n");
+	/*
+	 Ahora busca por índice en la tabla de páginas ya que key == índice lista
 
 	int _is_equal_key(t_pagina* registro){
 		// la lógica del list_find está al revés
 		log_trace(logger,"Compara %d con %d\n", key, registro->pagina->key);
 		return (key == registro->pagina->key);
-	}
+	}*/
+	t_cola_LRU* last_element = (t_cola_LRU*)queue_peek(cola_LRU);
+	if(last_element->nro_pagina == key && strcmp(last_element->nombre_tabla, segmento_encontrado->nombre_tabla))
+		return list_get(segmento_encontrado->tabla,key);
 
-	if(!list_is_empty(page_table)){
-		t_pagina* current_page = ((t_pagina*)list_find(page_table,(void*)_is_equal_key));
+	if(!list_is_empty(segmento_encontrado->tabla)){
+		t_pagina* current_page = list_get(segmento_encontrado->tabla, key);
+
+		//((t_pagina*)list_find(segmento_encontrado->tabla,(void*)_is_equal_key));
+		actualizar_cola(current_page->pagina->key,segmento_encontrado->nombre_tabla);
 		queue_push(cola_LRU,current_page);
 		return current_page;
 	}
@@ -341,7 +373,7 @@ t_pagina* buscar_key(tabla_paginas page_table, int key){
 		return NULL;
 }
 
-t_frame* solicitar_pagina(tabla_paginas page_table, const char* valor, int key, flag flag_state){
+t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int key, flag flag_state){
 	log_debug(logger,"Solcitando página para value: %s\n", valor);
 
 
@@ -359,8 +391,8 @@ t_frame* solicitar_pagina(tabla_paginas page_table, const char* valor, int key, 
 			nuevo_registro->pagina = &(memoria_principal[i]);
 			nuevo_registro->modificado = flag_state;
 
-			list_add(page_table,nuevo_registro);
-			queue_push(cola_LRU,nuevo_registro);
+			list_add_in_index(current_segmento->tabla,key,nuevo_registro);
+			actualizar_cola(key,current_segmento->nombre_tabla);
 
 			return &memoria_principal[i];
 		}
@@ -369,14 +401,35 @@ t_frame* solicitar_pagina(tabla_paginas page_table, const char* valor, int key, 
 
 	log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
 	algoritmo_reemplazo();
-	return solicitar_pagina(page_table, valor, key, flag_state);
+	return solicitar_pagina(current_segmento, valor, key, flag_state);
 }
 
-static void actualizar_pagina(t_pagina* pagina_encontrada, const char* new_value){
+static void actualizar_pagina(char* tabla,t_pagina* pagina_encontrada, const char* new_value){
 	strcpy(pagina_encontrada->pagina->value, new_value);
 	pagina_encontrada->pagina->timestamp = time(NULL);
 	pagina_encontrada->modificado = MODIFICADO;
-	queue_push(cola_LRU,pagina_encontrada);
+	actualizar_cola(pagina_encontrada->pagina->key,tabla);
+}
+
+static void actualizar_cola(int key, char* tabla){
+
+	int is_seeked_queue_element(t_cola_LRU* cola_element){
+		return (cola_element->nro_pagina == key && strcmp(tabla,cola_element->nombre_tabla));
+	}
+
+	t_cola_LRU* elemento = (t_cola_LRU*)list_remove_by_condition(cola_LRU->elements,(void*)is_seeked_queue_element);
+
+	if(elemento != NULL)
+		queue_push(cola_LRU,elemento);
+	else{
+		t_cola_LRU* new_element = malloc(sizeof(t_cola_LRU));
+		new_element->nro_pagina = key;
+		new_element->nombre_tabla = malloc(size_of_string(tabla));
+		strcpy(new_element->nombre_tabla,tabla);
+
+		queue_push(cola_LRU,new_element);
+	}
+
 }
 /*
 static int asignar_key(tabla_paginas page_table){
