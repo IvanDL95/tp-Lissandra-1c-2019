@@ -25,11 +25,11 @@ static void inicializar_memoria();
 t_segmento* crear_nuevo_segmento(char*);
 static void destruir_segmento(t_segmento*);
 t_pagina* buscar_key(t_segmento*, int key);
-t_frame* solicitar_pagina(t_segmento*, const char* value, int key, flag);
+static t_frame* solicitar_pagina(t_segmento*, const char* value, int key, flag);
 static void actualizar_pagina(char* tabla,t_pagina*,const char* new_value);
 static void actualizar_cola(int key, char* tabla);
 //static int asignar_key(tabla_paginas page_table);
-static void algoritmo_reemplazo();
+static t_frame* algoritmo_reemplazo(int *key/*, char* valor */);
 static void hacer_journal(flag_full);
 static void page_destroyer(t_pagina*);
 
@@ -373,11 +373,13 @@ t_pagina* buscar_key(t_segmento* segmento_encontrado, int key){
 		return NULL;
 }
 
-t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int key, flag flag_state){
+static t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int key, flag flag_state){
 	log_debug(logger,"Solcitando página para value: %s\n", valor);
+	int i;
 
+	t_frame* frame_modificado = malloc(sizeof(t_frame));
 
-	for(int i=0;i<CANTIDAD_FRAMES;i++){
+	for(i=0;i<CANTIDAD_FRAMES;i++){
 		if((memoria_principal[i].timestamp) == 0){
 			log_trace(logger,"Frame libre!: %d\n",i);
 			char* new_valor = malloc(tamanio_value);
@@ -387,21 +389,25 @@ t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int k
 			memcpy(memoria_principal[i].value, new_valor, tamanio_value);
 			memoria_principal[i].timestamp = time(NULL);
 
-			t_pagina* nuevo_registro = malloc(sizeof(t_pagina));
-			nuevo_registro->pagina = &(memoria_principal[i]);
-			nuevo_registro->modificado = flag_state;
-
-			list_add_in_index(current_segmento->tabla,key,nuevo_registro);
-			actualizar_cola(key,current_segmento->nombre_tabla);
-
-			return &memoria_principal[i];
+			frame_modificado = &memoria_principal[i];
 		}
 		log_trace(logger,"Frame ocupado: %d\n",i);
 	}
 
-	log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
-	algoritmo_reemplazo();
-	return solicitar_pagina(current_segmento, valor, key, flag_state);
+	if(i == CANTIDAD_FRAMES){
+		log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
+
+		frame_modificado = algoritmo_reemplazo(&key/*, valor */);
+	}
+
+	t_pagina* nuevo_registro = malloc(sizeof(t_pagina));
+	nuevo_registro->pagina = frame_modificado;
+	nuevo_registro->modificado = flag_state;
+
+	list_add_in_index(current_segmento->tabla,key,nuevo_registro);
+	actualizar_cola(key,current_segmento->nombre_tabla);
+
+	return frame_modificado;
 }
 
 static void actualizar_pagina(char* tabla,t_pagina* pagina_encontrada, const char* new_value){
@@ -448,23 +454,39 @@ static int asignar_key(tabla_paginas page_table){
 */
 
 
-static void algoritmo_reemplazo(){
+static t_frame* algoritmo_reemplazo(int* key/*, char* valor */){
 
-	t_pagina* ultima_pagina = malloc(sizeof(t_pagina));
+	t_cola_LRU* cabeza_lista = malloc(sizeof(t_cola_LRU));
 	while(!queue_is_empty(cola_LRU)){
-		ultima_pagina = queue_pop(cola_LRU);
+		cabeza_lista = queue_pop(cola_LRU);
+		char* nombre_tabla = malloc(size_of_string(cabeza_lista->nombre_tabla));
+
+		int _is_equal_segmento(t_segmento* segmento){
+			// la lógica del list_find está al revés
+			log_trace(logger,"Compara %s con %s\n", nombre_tabla, segmento->nombre_tabla);
+			return !strcmp(nombre_tabla,segmento->nombre_tabla);
+		}
+
+		t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
+
+		t_pagina* ultima_pagina = (t_pagina*)list_get(segmento_buscado->tabla, cabeza_lista->nro_pagina);
+
+
 		if(ultima_pagina->modificado == MODIFICADO)
 			continue;
 
-		ultima_pagina->pagina->timestamp = 0;
-		ultima_pagina->pagina->key = 0;
-		//ultima_pagina->pagina->value = 0;
-		return;
+		time_t* nuevo_timestamp = malloc(sizeof(time_t));
+		memmove(&(ultima_pagina->pagina->key), key, sizeof(int));
+		time(nuevo_timestamp);
+		memmove(&(ultima_pagina->pagina->timestamp), nuevo_timestamp, sizeof(time_t));
+		//memmove(ultima_pagina->pagina->value, valor, tamanio_value);
+
+		return ultima_pagina->pagina;
 	}
 
 	printf("Memoria está FULL, iniciando proceso de journal\n");
 	hacer_journal(FULL);
-	return;
+	return NULL;
 }
 
 static void hacer_journal(flag_full is_full){
