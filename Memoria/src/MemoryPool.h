@@ -54,12 +54,17 @@ typedef struct {
 
 Configuracion_MP config_MP;
 
+/*
 enum flag_full{
 	NOT_FULL,
 	FULL
 };
 
-typedef enum flag_full flag_full;
+typedef enum flag_full estado_memoria;
+
+estado_memoria ocuapdo;
+*/
+bool esta_full_memoria;
 
 enum bit_modificado{
 	NO_MODIFICADO,

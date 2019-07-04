@@ -30,7 +30,7 @@ static void actualizar_pagina(char* tabla,t_pagina*,const char* new_value);
 static void actualizar_cola(int key, char* tabla);
 //static int asignar_key(tabla_paginas page_table);
 static t_frame* algoritmo_reemplazo(int *key/*, char* valor */);
-static void hacer_journal(flag_full);
+static void hacer_journal();
 static void page_destroyer(t_pagina*);
 
 int main(int argc, char** argv){
@@ -38,6 +38,7 @@ int main(int argc, char** argv){
 	pthread_mutex_init(&mutex_logger, NULL);
 	log_info(logger, "Iniciando Memoria\n");
 	cola_LRU = queue_create();
+	esta_full_memoria = false;
 
 	get_configuracion(argv[1]); //pathMemoriaConfig
 
@@ -276,7 +277,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		break;
 		case JOURNAL:
 			log_debug(logger, "JOURNAL\n");
-			hacer_journal(NOT_FULL);
+			hacer_journal();
 			return "Journal completado";
 			break;
 		default:
@@ -359,7 +360,7 @@ t_pagina* buscar_key(t_segmento* segmento_encontrado, int key){
 	}*/
 	t_cola_LRU* last_element = (t_cola_LRU*)queue_peek(cola_LRU);
 	if(last_element->nro_pagina == key && strcmp(last_element->nombre_tabla, segmento_encontrado->nombre_tabla))
-		return list_get(segmento_encontrado->tabla,key);
+		return (t_pagina*)list_get(segmento_encontrado->tabla,key);
 
 	if(!list_is_empty(segmento_encontrado->tabla)){
 		t_pagina* current_page = list_get(segmento_encontrado->tabla, key);
@@ -472,8 +473,11 @@ static t_frame* algoritmo_reemplazo(int* key/*, char* valor */){
 		t_pagina* ultima_pagina = (t_pagina*)list_get(segmento_buscado->tabla, cabeza_lista->nro_pagina);
 
 
-		if(ultima_pagina->modificado == MODIFICADO)
+		if(ultima_pagina->modificado == MODIFICADO){
+			queue_push(cola_LRU,cabeza_lista);
 			continue;
+		}
+
 
 		time_t* nuevo_timestamp = malloc(sizeof(time_t));
 		memmove(&(ultima_pagina->pagina->key), key, sizeof(int));
@@ -481,52 +485,69 @@ static t_frame* algoritmo_reemplazo(int* key/*, char* valor */){
 		memmove(&(ultima_pagina->pagina->timestamp), nuevo_timestamp, sizeof(time_t));
 		//memmove(ultima_pagina->pagina->value, valor, tamanio_value);
 
+		free(segmento_buscado);
+		free(ultima_pagina);
+		free(nuevo_timestamp);
+		free(cabeza_lista);
 		return ultima_pagina->pagina;
 	}
 
+	free(cabeza_lista);
 	printf("Memoria está FULL, iniciando proceso de journal\n");
-	hacer_journal(FULL);
+	esta_full_memoria = true;
+	hacer_journal();
 	return NULL;
 }
 
-static void hacer_journal(flag_full is_full){
+static void hacer_journal(){
 	log_debug(logger, "Acá hay que bloquear todo\n");
-	if(is_full){
+	if(esta_full_memoria){
 		//enviar todas las paginas al FS y vaciar todoo
 		t_list* listado_a_enviar = list_create();
 		t_segmento* current_segmento = malloc(sizeof(t_segmento));
-		t_pagina* current_page = malloc(sizeof(t_pagina));
 
 		for(int i=0;!list_is_empty(tabla_segmentos);i++){
-			current_segmento = list_remove(tabla_segmentos,i);
-			for(int j=0;!list_is_empty(current_segmento->tabla);j++){
-				current_page = list_remove(current_segmento->tabla,j);
-				//TODO enviar INSERT nom_tabla key value
-				list_add(listado_a_enviar,current_segmento->nombre_tabla);
-				list_add(listado_a_enviar,string_itoa(current_page->pagina->key));
-				list_add(listado_a_enviar,current_page->pagina->value);
-			}
+			current_segmento = (t_segmento*)list_remove(tabla_segmentos,i);
+			list_add_all(listado_a_enviar,current_segmento->tabla);
 		}
 		enviar_listado_de_strings(socket_FS,listado_a_enviar,INSERT);
+		queue_clean(cola_LRU);
+		esta_full_memoria = false;
 	}else{
 		t_list* modified_pages_list = list_create();
-		unsigned int cant_segmentos = list_size(tabla_segmentos);
-		unsigned int tam_current_page_table;
 		t_segmento* current_segmento = malloc(sizeof(t_segmento));
-		t_pagina* current_page = malloc(sizeof(t_pagina));
+		int key;
 
-		for(int i=0;i<cant_segmentos;i++){
-			current_segmento = list_get(tabla_segmentos,i);
-			tam_current_page_table = list_size(current_segmento->tabla);
-			for(int j=0;j<tam_current_page_table;j++){
-				current_page = list_get(current_segmento->tabla,j);
-				if(current_page->modificado == MODIFICADO){
-					list_add(modified_pages_list, current_segmento->nombre_tabla);
-					list_add(modified_pages_list, string_itoa(current_page->pagina->key));
-					list_add(modified_pages_list, current_page->pagina->value);
-				}
+		/*	Matchea el elemento que tenga el mismo nombre tabla y key que la pagina filtrada	*/
+
+		int _has_same_key_and_table(t_cola_LRU* elemento){
+			if(!strcmp(current_segmento->nombre_tabla,elemento->nombre_tabla) && elemento->nro_pagina == key)
+				return 1;
+			else
+				return 0;
+		}
+
+		/* Filtrar elementos y luego quitarlos de la cola */
+
+		int _not_modified(t_pagina* pagina_actual){
+			if(pagina_actual->modificado)
+				return 0;
+			else{
+				key = pagina_actual->pagina->key;
+				list_remove_by_condition(cola_LRU->elements,(void*)_has_same_key_and_table);
+				return 1;
 			}
 		}
+
+		t_list* tabla_segmentos_aux = list_create();
+		tabla_segmentos_aux = list_duplicate(tabla_segmentos);
+
+
+		for(int i=0;!list_is_empty(tabla_segmentos_aux);i++){
+			current_segmento = (t_segmento*)list_remove(tabla_segmentos_aux,i);
+			list_add_all(modified_pages_list,list_filter(current_segmento->tabla,(void*)_not_modified));
+		}
+
 		enviar_listado_de_strings(socket_FS,modified_pages_list,INSERT);
 	}
 	return;
