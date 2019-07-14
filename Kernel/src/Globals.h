@@ -16,5 +16,9 @@ Configuracion_Kernel config_Kernel;
 
 un_socket socket_Memoria = 0;
 
+t_memorias memorias_SC;
+t_memorias memorias_EC;
+t_memorias memorias_SHC;
+
 
 #endif /* SRC_GLOBALS_H_ */
