@@ -29,14 +29,18 @@ enum Criterios_Memoria{
 	EC //Criterio Eventual Consistency
 };
 
+typedef enum Criterios_Memoria criterio_memoria;
+
 typedef struct {
 	int id;
 	char *ip;
 	int puerto;
+	criterio_memoria criterio;
 } t_memorias;
 
-
-typedef enum Criterios_Memoria criterio_memoria;
+t_list* memoriasSC;
+t_list* memoriasEC;
+t_list* memoriasSHC;
 
 t_requestAMemoria requestAPlanificar;
 
@@ -50,7 +54,7 @@ void parsear_archivo_lql(char*);
 
 void mostrarMetricas();
 
-void asignar_Criterios_Memoria();
+void asignar_memoria_inicial();
 
 pthread_t thread_parser;
 

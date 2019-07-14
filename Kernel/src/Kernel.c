@@ -29,7 +29,7 @@ int main(int argc, char** argv){
 
 	if (conectar_con_Memoria() == -1) return -1;
 
-	asignar_Criterios_Memoria();
+	asignar_memoria_inicial();
 
 
 	arg_planificacion[0] = config_Kernel.QUANTUM;
@@ -103,7 +103,8 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			log_info(logger, "Ejecutar JOURNAL en cada Memoria Asociada\n");
 			break;
 		case ADD:
-			printf("\nEjecutando ADD\n");
+			log_info(logger, "Ejecutando comando ADD\n");
+
 			break;
 		case RUN:
 			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL");
@@ -146,7 +147,7 @@ int conectar_con_Memoria(){
 	return 0;
 }
 
-void asignar_Criterios_Memoria() {
+void asignar_memoria_inicial() {
 
 
 }
