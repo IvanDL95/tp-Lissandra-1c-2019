@@ -60,7 +60,41 @@ const char *extensionArchivo(const char *nombreArch) {
     return punto + 1;
 }
 
-void leerTemporales(char* pathTablaActual,int key, t_list* entradasEncontradas){
+char *removerExtension(char *nombreArch) {
+	char *retstr;
+	char *lastdot;
+	if (nombreArch == NULL)
+		return NULL;
+	if ((retstr = malloc(strlen(nombreArch) + 1)) == NULL)
+		return NULL;
+	strcpy(retstr, nombreArch);
+	lastdot = strrchr(retstr, '.');
+	if (lastdot != NULL)
+		*lastdot = '\0';
+	return retstr;
+}
+
+void listarBloques() {
+	DIR* dir;
+	struct dirent* ent;
+
+	if ((dir = opendir(pathBloques)) != NULL) {
+		/* print all the files and directories within directory */
+		while ((ent = readdir(dir)) != NULL) {
+			if (strcmp(extensionArchivo(ent->d_name), "bin") == 0) {
+				list_add(bloques, ent->d_name);
+
+			}
+		}
+
+		closedir(dir);
+	} else {
+		/* could not open directory */
+		perror("");
+	}
+}
+
+void leerTemporales(char* pathTablaActual,int key, t_list* entradasEncontradas,char* tipoTemporal){
 
 	DIR* dir;
 	struct dirent *ent;
@@ -72,7 +106,7 @@ void leerTemporales(char* pathTablaActual,int key, t_list* entradasEncontradas){
 	if ((dir = opendir (pathTablaActual)) != NULL) {
 	  /* print all the files and directories within directory */
 	  while ((ent = readdir (dir)) != NULL) {
-	    if (strcmp(extensionArchivo(ent->d_name),"tmp")==0){
+	    if (strcmp(extensionArchivo(ent->d_name),tipoTemporal)==0){
 	    	strcat(pathArchTemporal,ent->d_name);
 	    	buscarEnArchivoTemporal(pathArchTemporal,key,entradasEncontradas);
 	    }
@@ -126,7 +160,7 @@ void listarMemTable(){
 	}
 }
 
-int crearYGrabarArchivoMetadata(char* path, tInfoMetadata* infoMetadata){
+int crearYGrabarArchivoMetadataDeTabla(char* path, tInfoMetadata* infoMetadata){
 	struct stat infoArchvo;
 	FILE* arch=fopen(path,"w");
 	char* propiedades=malloc(80);
@@ -176,8 +210,8 @@ char* operacionSelect(char* nombreTabla,int key){
 
 
 		infoMetadata->consistency=config_get_string_value(metadata,"CONSISTENCIA");
-		infoMetadata->consistency=config_get_string_value(metadata,"PARTICIONES");
-		infoMetadata->tiempoCompactacion = config_get_string_value(metadata,"TIEMPO_COMPACTACION");
+		infoMetadata->particiones=config_get_int_value(metadata,"PARTICIONES");
+		infoMetadata->tiempoCompactacion = config_get_int_value(metadata,"TIEMPO_COMPACTACION");
 
 		particionObjetivo = calcularParticionObjetivo(key,infoMetadata->particiones);
 
@@ -196,7 +230,7 @@ char* operacionSelect(char* nombreTabla,int key){
 				buscarEnArchivoDeBloque(pathBloqueActual, key, bloque,registrosEncontrados);
 			}
 
-		leerTemporales(pathTablaActual,key,registrosEncontrados);
+		leerTemporales(pathTablaActual,key,registrosEncontrados,"tmp");
 		buscarValorEnMemtable(key,registrosEncontrados);
 		valorBuscado=obtenerValorMayorTimestamp(registrosEncontrados);
 		return valorBuscado;
@@ -263,24 +297,164 @@ int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticione
 	if(existe==-1){
 
 		crearDirectorioTabla(nombreTabla);
-		crearYGrabarArchivoMetadata(pathMetadata,infoMetadata);
+		crearYGrabarArchivoMetadataDeTabla(pathMetadata,infoMetadata);
+		crearArchivosBinariosDeTabla(pathTablaActual,infoMetadata->particiones);
 
 	}else log_error(logger,"La tabla ya existe en el FS");
 
 }
 
-int realizarCompactacion(){
+///ACA FALTAN LAS OPERACIONES DESCRIBE Y DROP
+
+//******************************************************************//
+
+int procesarArchivosTMPC(DIR* dirTablaActual) {
+	struct dirent* entradasTMPC;
+	int e=0;
+	struct stat infoArchivo;
+	char* buffer=malloc(100);
+	int leidos=0;
+
+	while ((entradasTMPC = readdir(dirTablaActual)) != NULL) { //LEO CADA ENTRADA DE LA TABLA
+		if (strcmp(extensionArchivo(entradasTMPC->d_name), "tmpc") == 0) { //CONSIDEROS SOLO LOS TMPV
+
+			FILE* arch=fopen(entradasTMPC->d_name, "w+");
+			stat(entradasTMPC->d_name, &infoArchivo);
+			if(e==0){
+				log_error(logger,"Error al abrir el Archvio TMPC");
+			}else {
+				leidos=fread(buffer, infoArchivo.st_size, 1, arch);
+				printf("LEIDOS: %d",leidos);
+
+			}
+
+
+
+		}
+	}
 
 }
 
+
+void recorrerTablasACompactar() {
+
+	DIR *dp;
+	struct dirent *entry;
+	struct stat statbuf;
+	int hayTemporales;
+	char* nombreNuevo = malloc(20);
+	int ret=0;
+	int i=0;
+	char* bufferArchivoTMPC=malloc(30);
+	char* pathParticionActual=malloc(80);
+
+	if ((dp = opendir(pathTablas)) == NULL) {//LEO CARPETA POR CARPETA DE CADA TABLA
+		fprintf(stderr, "cannot open directory: %s\n", pathTablas);
+		return;
+	}
+	chdir(pathTablas); //ME POSICIONO EN EL DIRECTORIO DE TABLAS
+	while ((entry = readdir(dp)) != NULL) {
+		DIR* dirTablaActual;
+		char* pathTablaActual = malloc(80);
+		struct dirent* ent2;
+
+		lstat(entry->d_name, &statbuf);
+		if (S_ISDIR(statbuf.st_mode)) {
+			/* Found a directory, but ignore . and .. */
+			if (strcmp(".", entry->d_name) == 0 	//TOMO LAS ENTRADAS QUE NO SEAN .. y .
+					|| strcmp("..", entry->d_name) == 0)
+				continue;
+			strcpy(pathTablaActual, pathTablas);
+			strcat(pathTablaActual, entry->d_name);
+
+			if ((dirTablaActual = opendir(pathTablaActual)) != NULL) { //ABRO CADA TABLA
+				/* print all the files and directories within directory */
+				chdir(pathTablaActual); //ME POSICIONO EN LA TABLA ACTUAL
+				archivosACompactar=list_create();
+
+				while ((ent2 = readdir(dirTablaActual)) != NULL) { 	//LEO CADA ENTRADA DE LA TABLA
+					if (strcmp(extensionArchivo(ent2->d_name), "tmp") == 0) { //CONSIDEROS SOLO LOS TEMPORALES
+						strcpy(nombreNuevo, removerExtension(ent2->d_name));
+						strcat(nombreNuevo, ".tmpc");
+						ret = rename(ent2->d_name, nombreNuevo);
+						list_add(archivosACompactar,ent2->d_name);
+						struct stat info;
+						int particionObjetivo=0;
+						t_dictionary* metadataTablaActual=dictionary_create();
+						char* bloques=malloc(20);
+
+						//CAMBIAR EL HARDCODEO DE PATHS
+						metadataTablaActual=leerMetadataTabla("/home/utnso/LISSANDRA_FS/Tables/Table1/metadata.txt");
+						stat("/home/utnso/LISSANDRA_FS/Tables/Table1/A.tmpc", &info);
+						FILE* arch=fopen("/home/utnso/LISSANDRA_FS/Tables/Table1/A.tmpc","r");
+						memset(bufferArchivoTMPC, 0, sizeof(bufferArchivoTMPC));
+						memset(bloques, 0, sizeof(bloques));
+
+						//procesarArchivosTMPC(dirTablaActual);
+						//fopen(list_get(archivosACompactar,0),"r");
+						fseek(arch,0,SEEK_SET);
+						fread(bufferArchivoTMPC,info.st_size,1,arch);
+
+						string_trim(&bufferArchivoTMPC);
+						char** substrings=string_split(bufferArchivoTMPC,"\n");
+
+						while (substrings[i]!=NULL){
+							char** propiedades= string_n_split(substrings[i],3,";");
+							particionObjetivo=calcularParticionObjetivo(atoi(propiedades[1]),atoi(dictionary_get(metadataTablaActual,"PARTICIONES")));
+							sprintf(pathParticionActual,"%s%s%d%s",pathTablaActual,"/",particionObjetivo,".bin");
+							bloques=leerBloquesDeParticion(pathParticionActual);
+							recorrerBloquesYBuscarClave(bloques,propiedades[0],propiedades[1],propiedades[2]);
+							i++;
+						}
+
+						//dictionary_put(archivosACompactarPorTabla,entry->d_name,archivosACompactar); //ME GUARDO TODOS LOS ARCHIVOS A COMPACTAR POR TABLA EN UN DICCIONARIO
+					}//SE PUEDE AGREGAR A UNA LISTA DE TABLAS A COMPACTAR O ALGO ASI Y REALIZAR LA COMPACTACION DE ESAS TABLAS
+					//fopen(list_get(dictionary_get(archivosACompactarPorTabla,"Table1"),0),"r");
+
+				}
+
+			closedir(dirTablaActual);
+			} else {
+				/* could not open directory */
+				perror("");
+			}
+			//printf("%*s%s/\n", depth, "", entry->d_name);
+			/* Recurse at a new indent level */
+			//printdir(entry->d_name, depth + 4);
+		}
+		//printf("%*s%s\n", depth, "", entry->d_name);
+	}
+	chdir("..");
+	closedir(dp);
+}
+
+
+
+
+int inicarProcesoCompactacion(){
+
+
+	recorrerTablasACompactar();
+
+	}
+
+	//renombrarArchivosTemporales();
+
+crearHiloCompactador(){
+	pthread_create(&hilo_compactador, NULL, (void*) inicarProcesoCompactacion, logger);
+
+}
+
+
+
 int main(int argc, char** argv){
 
-	logger = log_create("lissandra.log", "Lissandra", 1, LOG_LEVEL_INFO);
+logger = log_create("lissandra.log", "Lissandra", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando File System\n");
 	char* valorBuscado=malloc(10);
 	memTable=list_create();
 	get_configuracion(argv[1]);
-
+	bloques=list_create();
 	pathTablas = malloc(60);
 	pathBloques = malloc(60);
 
@@ -288,10 +462,17 @@ int main(int argc, char** argv){
 	strcat(pathTablas,"Tables/");
 	strcpy(pathBloques,config_LS.PUNTO_MONTAJE);
 	strcat(pathBloques,"Bloques/");
+	listarBloques();
+	archivosACompactar=dictionary_create();
 
-	operacionCreate("Table2","SC",10,2);
-/*
-	pthread_t hilo_consola;
+	void listar(char* el){
+		printf("%s\n", el);
+	}
+	list_iterate(bloques,(void*) listar);
+
+	//operacionCreate("Table2","SC",3,5);
+	recorrerTablasACompactar();
+	/*pthread_t hilo_consola;
 
 	pthread_create(&hilo_consola, NULL, (void*) iniciar_consola, logger);
 

@@ -98,7 +98,7 @@ int crearDirectorioBloques(char* pathBloques){
 		return 0;
 
 	} else
-		log_info(logger, "Directorioc de bloques creado");
+		log_info(logger, "Directorio de bloques creado");
 
 
 	return 1;
@@ -122,8 +122,73 @@ int crearDirectorioMetadata(){
 	return 1;
 }
 
+void inicalizarBitmap(char* pathBitmap){
 
-void leerMetadata(t_dictionary* metadata, char* pathMetadata) {
+	FILE* archivoBM=fopen(pathBitmap,"w+");
+
+
+
+
+
+
+
+
+
+
+}
+
+int crearArchivosBinariosDeTabla(char* pathTabla, int cantParticiones) {
+	int i, e;
+	char* pathArchvivoParticion = malloc(80);
+	char* propiedades = malloc(strlen("SIZE=BLOQUES=") + 60);
+	char* nombreBloque=malloc(5);
+
+	struct stat infoArch;
+
+	e = stat(pathTabla, &infoArch);
+
+	for (i = 0; i < cantParticiones; i++) {
+		strcpy(pathArchvivoParticion, pathTabla);
+		strcat(pathArchvivoParticion, "/");
+		strcat(pathArchvivoParticion, string_itoa(i + 1));
+		strcat(pathArchvivoParticion, ".bin");
+
+		tParticion* particion = malloc(sizeof(tParticion));
+		FILE* archivoActual = fopen(pathArchvivoParticion, "w");
+
+		if(archivoActual!=NULL) {
+			int length=sprintf(propiedades,"%s%s%s","SIZE=","\n","BLOQUES=");
+
+			if(archivoActual==NULL) {
+				log_error(logger, "Error al abrir el archivo");
+				return -1;
+
+			} else {
+				//fwrite(infoMetadata->consistency,sizeof(infoMetadata->consistency),1,arch);
+				fwrite(propiedades,length,1,archivoActual);
+				fseek(archivoActual, 0, SEEK_CUR);
+
+				if(i< bloques->elements_count){
+					strcpy(nombreBloque,removerExtension(list_get(bloques,i)));
+				}else strcpy(nombreBloque,removerExtension(list_get(bloques,0)));
+
+				//REVISAR PORQUE PARA LA PRIMERA PARTICION ASIGNA UN VALOR BASURA
+
+				fwrite(nombreBloque,strlen(nombreBloque),1,archivoActual);
+
+				//asigno Bloques
+			}
+			fclose(archivoActual);
+		} else return -1;
+
+}
+
+return 1;
+
+}
+
+t_dictionary* leerMetadataTabla(char* pathMetadata) {
+	t_dictionary* metadata=dictionary_create();
 	struct stat infoArchivo;
 	metadata = dictionary_create();
 	FILE* archivoMetadata;
@@ -159,6 +224,7 @@ void leerMetadata(t_dictionary* metadata, char* pathMetadata) {
 	free(lineas);
 	free(buffer);
 	fclose(archivoMetadata);
+	return metadata;
 
 }
 
@@ -294,4 +360,148 @@ void buscarEnArchivoTemporal(char* pathArchivoTemporal, int key,t_list* registro
 
 }
 
+void renombrarArchivosTemporales(char* pathTabla) {
+	DIR* dir;
+	struct dirent *ent;
+	int ret;
+	char* pathArchTemporal = malloc(60);
+	char* nombreNuevo = malloc(80);
+	strcpy(pathArchTemporal, pathTabla);
+	strcat(pathArchTemporal, "/");
+
+	if ((dir = opendir(pathTabla)) != NULL) {
+
+
+		while ((ent = readdir(dir)) != NULL) {
+			if (strcmp(extensionArchivo(ent->d_name), "tmp") == 0) {
+				strcat(pathArchTemporal, ent->d_name);
+				strcpy(nombreNuevo,removerExtension(ent->d_name));
+				strcat(nombreNuevo,".tmpc");
+				ret = rename(ent->d_name, nombreNuevo);
+
+				if (ret == 0) {
+					printf("File renamed successfully");
+				} else {
+					printf("Error: unable to rename the file");
+				}
+
+			}
+		}
+		closedir(dir);
+
+	}
+
+}
+
+char* leerBloquesDeParticion(char* pathParticion) {
+
+	t_dictionary* metadata = dictionary_create();
+	struct stat infoArchivo;
+	metadata = dictionary_create();
+	FILE* archivoMetadata;
+	int e;
+
+	archivoMetadata = fopen(pathParticion, "r");
+
+	if (archivoMetadata == NULL) {
+		printf("fopen fallo, errno = %d\n", errno);
+
+	} else
+		printf("Archivo abierto exitosamente");
+
+	e = stat(pathParticion, &infoArchivo);
+
+	char* buffer = calloc(1, 100);
+	//char* buffer = calloc(1, 100); //MODIFICAR EL SEGUNDO PARAMETRO
+
+	fread(buffer, 55, 1, archivoMetadata);
+
+	char** lineas = string_split(buffer, "\n");
+
+	void agregarInfoMetadata(char* linea) {
+		char** propiedadValor = string_n_split(linea, 2, "=");
+		dictionary_put(metadata, propiedadValor[0], propiedadValor[1]);
+		free(propiedadValor[0]);
+		free(propiedadValor);
+	}
+
+	string_iterate_lines(lineas, agregarInfoMetadata);
+	string_iterate_lines(lineas, (void*) free);
+
+	//free(lineas);
+	//free(buffer);
+	fclose(archivoMetadata);
+	return (dictionary_get(metadata,"BLOCKS"));
+
+
+
+}
+
+
+int recorrerBloquesYBuscarClave(char* bloques, char* timestamp,char* key, char* valor){
+
+	int tStamp=atoi(timestamp);
+	int clave=atoi(key);
+	char** numBloques= string_split(bloques,",");
+	char* bufferArchBloque=malloc(100);
+	struct stat info;
+	int iBloque=0;
+	int iLineaArchivo=0;
+	char* pathBloqueActual=malloc(80);
+	char* bufferBloque=malloc(80);
+	tEntrada* entrada=malloc(sizeof(tEntrada));
+	char* bufferEntradaAEscribir=malloc(80);
+
+	while(numBloques[iBloque]!=NULL){
+		sprintf(pathBloqueActual,"%s%s%s",pathBloques,numBloques[iBloque],".bin");
+		FILE* archBloqueActual=fopen(pathBloqueActual,"r");
+
+		if(archBloqueActual!=0){
+			memset(bufferArchBloque, 0, sizeof(bufferArchBloque));
+			fseek(archBloqueActual,0,SEEK_SET);
+			fread(bufferArchBloque,info.st_size,1,archBloqueActual);
+
+			//HAGO SPLIT DEL ARCHIVO EN '\n'
+			char** lineasArchivo=string_split(bufferArchBloque,"\n");
+
+			while(lineasArchivo[iLineaArchivo]!=NULL){
+
+				//DE CADA LINEA A SU VEZ HAGO SPLIT POR EL CARACTER ';'
+				char** propiedades=string_n_split(lineasArchivo[iLineaArchivo],3,";");
+
+				if(propiedades[1]==clave && propiedades[0]<tStamp){
+					sprintf(bufferEntradaAEscribir,"%d%s%d%s%s",tStamp,";",clave,";",valor);
+					if(iLineaArchivo==0){
+						fseek(archBloqueActual,0,SEEK_SET);
+						fwrite(bufferEntradaAEscribir,strlen(bufferEntradaAEscribir),1,archBloqueActual);
+
+					}else {
+						fseek(archBloqueActual,strlen(lineasArchivo[iLineaArchivo-1])+1,SEEK_SET);
+						fwrite(bufferEntradaAEscribir,strlen(bufferEntradaAEscribir),1,archBloqueActual);
+					}
+
+				}else {
+					sprintf(bufferEntradaAEscribir,"%d%s%d%s%s",tStamp,";",clave,";",valor);
+					fseek(archBloqueActual,0,SEEK_END);
+					fwrite(bufferEntradaAEscribir,strlen(bufferEntradaAEscribir),1,archBloqueActual);
+
+				}
+
+				iLineaArchivo++;
+			}
+			iLineaArchivo=0;
+
+
+
+		}else log_error(logger,"Error al abrir el archivo de bloque");
+
+		iBloque++;
+	}
+
+
+
+
+
+
+}
 

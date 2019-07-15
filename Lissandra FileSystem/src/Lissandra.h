@@ -72,11 +72,16 @@ Configuracion_LS config_LS;
 un_socket socket_MEM;
 
 t_list* memTable;
+t_list* bloques;
+t_list* archivosACompactar;
+t_dictionary* archivosACompactarPorTabla;
 
 pthread_t hilo_Server;
+pthread_t hilo_compactador;
 pthread_attr_t hilo_attr_Server;
 pthread_mutex_t mutex_mensaje;
 pthread_mutex_t mutex_logger;
+
 
 
 int operacionInsert(char* , int , char* ,int );
