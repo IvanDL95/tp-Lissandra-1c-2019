@@ -16,20 +16,25 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "Globals.h"
 
 
 int main(int argc, char** argv){
 
+	int arg_planificacion[2];
 	logger = log_create("kernel.log", "Kernel", 1, LOG_LEVEL_INFO);
 	log_info(logger, "Iniciando Kernel\n");
 
-
 	get_configuracion(argv[1]);
-
 
 	if (conectar_con_Memoria() == -1) return -1;
 
-	asignar_Criterios_Memoria();
+	asignar_memoria_inicial();
+
+
+	arg_planificacion[0] = config_Kernel.QUANTUM;
+	arg_planificacion[1] = config_Kernel.MULTIPROCESAMIENTO;
+	pthread_create(&thread_planificador, NULL, (void*) planificador, arg_planificacion);
 
 	iniciar_consola(logger);
 
@@ -66,36 +71,46 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 		list_add(lista_argumentos, argumentos[i]);
 		i++;
 	}
+
+	requestAPlanificar = crearEstructuraRequest(lista_argumentos, operacion);
+
+	if (planificarRequest(requestAPlanificar) != 0 )
+		log_error(logger, "Error al Planificar Request");
+
 	switch(operacion){
 		case SELECT:
-			log_info(logger, "Enviando comando SELECT a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, SELECT);
+			log_info(logger, "Planificando Request Select \n");
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, SELECT);
+			//enviarAPLanificador();
 			break;
 		case INSERT:
 			log_info(logger, "Enviando comando INSERT a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
 			break;
 		case CREATE:
 			log_info(logger, "Enviando comando CREATE a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
 			break;
 		case DESCRIBE:
 			log_info(logger, "Enviando comando DESCRIBE a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
 			break;
 		case DROP:
 			log_info(logger, "Enviando comando DROP a la Memoria\n");
-			enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
+			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, DROP);
 			break;
 		case JOURNAL:
 			log_info(logger, "Ejecutar JOURNAL en cada Memoria Asociada\n");
 			break;
 		case ADD:
-			printf("\nEjecutando ADD\n");
+			log_info(logger, "Ejecutando comando ADD\n");
+
 			break;
 		case RUN:
 			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL");
-			pthread_create(&thread_parser, NULL, (void*) parsear_archivo_lql, argumentos[0]);
+			//pthread_create(&thread_parser, NULL, (void*) parsear_archivo_lql, argumentos[0]);
+			parsear_archivo_lql(argumentos[0]);
+
 			break;
 		case METRICS:
 			printf("\nEjecutando METRICS\n");
@@ -132,7 +147,7 @@ int conectar_con_Memoria(){
 	return 0;
 }
 
-void asignar_Criterios_Memoria() {
+void asignar_memoria_inicial() {
 
 
 }
@@ -146,6 +161,7 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 	char* string_value;
 	char* aux;
 	FILE *archivo_lql;
+	t_SCB SCB;
 
 	if ((archivo_lql = fopen(path_archivo_lql, "r")) == NULL)
 	{
@@ -153,6 +169,15 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 		// Program exits if file pointer returns NULL.
 		//return;
 	}
+
+	SCB.estado = NEW;
+	SCB.punteroProximaLinea = 1;
+	SCB.rutaDelArchivo = archivo_lql;
+	SCB.scriptID = 1;
+
+	//enviarAPlanificador(SCB);
+
+
 	while ( fgets ( sentencia_lql, sizeof(sentencia_lql), archivo_lql ) != NULL ) {
 		printf("Data from the file: %s \n", sentencia_lql);
 		log_info(logger, sentencia_lql);
@@ -206,3 +231,12 @@ void mostrarMetricas() {
 	//printf("%d \n\n",memoryLoad);
 	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
 }
+
+t_requestAMemoria crearEstructuraRequest(t_list* argumentosRequest, command_api comandoRequest) {
+	t_requestAMemoria dataRequest;
+	dataRequest.socketMemoria = socket_Memoria;
+	dataRequest.listaArgumentos = argumentosRequest;
+	dataRequest.comando = comandoRequest;
+	return dataRequest;
+}
+

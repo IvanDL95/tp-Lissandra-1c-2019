@@ -54,12 +54,17 @@ typedef struct {
 
 Configuracion_MP config_MP;
 
+/*
 enum flag_full{
 	NOT_FULL,
 	FULL
 };
 
-typedef enum flag_full flag_full;
+typedef enum flag_full estado_memoria;
+
+estado_memoria ocuapdo;
+*/
+bool esta_full_memoria;
 
 enum bit_modificado{
 	NO_MODIFICADO,
@@ -97,5 +102,10 @@ typedef t_frame* array_de_frames;
 array_de_frames memoria_principal;
 
 t_queue* cola_LRU;
+
+typedef struct{
+	int nro_pagina;
+	char* nombre_tabla;
+}t_cola_LRU;
 
 #endif /* SRC_MEMORYPOOL_H_ */
