@@ -83,7 +83,6 @@ pthread_mutex_t mutex_mensaje;
 pthread_mutex_t mutex_logger;
 
 
-
 int operacionInsert(char* , int , char* ,int );
 
 #endif /* SRC_LISSANDRA_H_ */

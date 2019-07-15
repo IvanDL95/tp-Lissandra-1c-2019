@@ -278,7 +278,7 @@ int operacionInsert(char* nombreTabla, int key, char* value, int timestamp ){
 	free(pathBloqueActual);
 }
 
-void operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticiones, int tiempoCompactacion){
+int operacionCreate(char* nombreTabla, char* tipoConsistencia, int numParticiones, int tiempoCompactacion){
 	char* pathTablaActual = malloc(80);
 	char* pathMetadata = malloc(80);
 	char* pathParticion = malloc(80);

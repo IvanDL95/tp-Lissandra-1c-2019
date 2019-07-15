@@ -501,7 +501,5 @@ int recorrerBloquesYBuscarClave(char* bloques, char* timestamp,char* key, char* 
 
 
 
-
-
 }
 
