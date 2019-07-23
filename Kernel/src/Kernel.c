@@ -29,15 +29,13 @@ int main(int argc, char** argv){
 
 	if (conectar_con_Memoria() == -1) return -1;
 
-	asignar_memoria_inicial();
-
-
 	arg_planificacion[0] = config_Kernel.QUANTUM;
 	arg_planificacion[1] = config_Kernel.MULTIPROCESAMIENTO;
 	pthread_create(&thread_planificador, NULL, (void*) planificador, arg_planificacion);
 
-	iniciar_consola(logger);
+	inicializar_memorias();
 
+	iniciar_consola(logger);
 
 	terminar_programa(logger,NULL);
 }
@@ -74,26 +72,24 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 
 	requestAPlanificar = crearEstructuraRequest(lista_argumentos, operacion);
 
-	if (planificarRequest(requestAPlanificar) != 0 )
-		log_error(logger, "Error al Planificar Request");
-
 	switch(operacion){
 		case SELECT:
 			log_info(logger, "Planificando Request Select \n");
-			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, SELECT);
-			//enviarAPLanificador();
+			if (planificarRequest(requestAPlanificar) != 0 )
+				log_error(logger, "Error al Planificar Request");
 			break;
 		case INSERT:
 			log_info(logger, "Enviando comando INSERT a la Memoria\n");
-			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, INSERT);
+			if (planificarRequest(requestAPlanificar) != 0 )
+				log_error(logger, "Error al Planificar Request");
 			break;
 		case CREATE:
 			log_info(logger, "Enviando comando CREATE a la Memoria\n");
-			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, CREATE);
+			if (planificarRequest(requestAPlanificar) != 0 )
+				log_error(logger, "Error al Planificar Request");
 			break;
 		case DESCRIBE:
 			log_info(logger, "Enviando comando DESCRIBE a la Memoria\n");
-			//enviar_listado_de_strings(socket_Memoria, lista_argumentos, DESCRIBE);
 			break;
 		case DROP:
 			log_info(logger, "Enviando comando DROP a la Memoria\n");
@@ -104,7 +100,14 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			break;
 		case ADD:
 			log_info(logger, "Ejecutando comando ADD\n");
-
+//			for(int cont=0; cont <= i; cont++){
+//				if(strlen(argumentos[cont]) < 1) {
+//					log_error(logger, "No se pudo asignar Memoria - Cantidad de Argumentos incorrectos");
+//					break;
+//				}
+//			}
+			if (asignar_memoria_criterio(argumentos) != 0 )
+				log_error(logger, "No se pudo asignar Memoria");
 			break;
 		case RUN:
 			log_info(logger, "Ejecutando RUN - Parseando Archivo LQL");
@@ -147,9 +150,121 @@ int conectar_con_Memoria(){
 	return 0;
 }
 
+int asignar_memoria_criterio(char** argumentos) {
+	int index_argumentos = 0;
+	int index_mem;
+	int num_memoria = atoi(argumentos[1]);
+	string_to_upper(argumentos[0]);
+	string_to_upper(argumentos[2]);
+	string_to_upper(argumentos[3]);
+	criterio_memoria criterio_a_asignar = Null;
+	t_memoria* memoria_encontrada;
+	switch(index_argumentos) {
+	case 0:
+		if(strcmp("MEMORIA", argumentos[0]) != 0) {
+			return -1;
+		}
+		index_argumentos++; // @suppress("No break at end of case")
+	case 1:
+		if(num_memoria < 1) {
+			return -1;
+		}
+		index_argumentos++; // @suppress("No break at end of case")
+	case 2:
+		if(strcmp("TO", argumentos[2]) != 0) {
+			return -1;
+		}
+		index_argumentos++; // @suppress("No break at end of case")
+	case 3:
+		criterio_a_asignar = convertir_string_criterio(argumentos[3]);
+		if(criterio_a_asignar == Null) {
+			return -1;
+		}
+		break;
+	}
+
+	index_mem = verificar_existe_memoria(num_memoria);
+	if( index_mem < 0){
+		log_error(logger, "Memoria No Reconocida");
+		return -1;
+	}
+
+	memoria_encontrada = list_get(memorias, index_mem);
+
+	switch(criterio_a_asignar) {
+	case SC:
+		list_add(memoriasSC, memoria_encontrada);
+		log_info(logger, "Memoria asignada a criterio SC");
+		break;
+	case SHC:
+		list_add(memoriasSC, memoria_encontrada);
+		log_info(logger, "Memoria asignada a criterio SHC");
+		break;
+	case EC:
+		list_add(memoriasSC, memoria_encontrada);
+		log_info(logger, "Memoria asignada a criterio EC");
+		break;
+	case Null:
+		break;
+	}
+	return 0;
+}
+
+criterio_memoria convertir_string_criterio(char* string_convertir) {
+	static struct criterio_mem {
+		const char *key;
+		criterio_memoria token;
+	} token_table[] = {
+		{ "SC", SC },
+		{ "SHC", SHC },
+		{ "EC", EC },
+		{ NULL, Null }
+	};
+	struct criterio_mem *p = token_table;
+	for(; p->key != NULL && strcmp(p->key, string_convertir) != 0; ++p);
+	return p->token;
+}
+
+int verificar_existe_memoria(int numero_memoria){
+	int cantidad_memorias = 0;
+	int index_mem = 0;
+	t_memoria* memoria_encontrada;
+	cantidad_memorias = list_size(memorias);
+	printf("\ncantidad_memorias = %i\n", cantidad_memorias);
+	if (cantidad_memorias < 1) {
+		log_error(logger, "No hay memorias Disponibles - Ejecutar comando ADD");
+		return -1;
+	}
+
+	while(index_mem + 1 <= cantidad_memorias) {
+		memoria_encontrada = list_get(memorias, index_mem);
+		if (memoria_encontrada->id == numero_memoria)
+			return index_mem;
+		else
+			index_mem++;
+	}
+	return -1;
+}
+
+void inicializar_memorias(){
+
+	memorias = list_create();
+	memoriasSC = list_create();
+	memoriasEC = list_create();
+	memoriasSHC = list_create();
+	asignar_memoria_inicial();
+
+	return;
+}
+
 void asignar_memoria_inicial() {
-
-
+	estructura_memoria.id = 1;
+	estructura_memoria.ip = config_Kernel.IP_MEMORIA;
+	estructura_memoria.puerto = atoi(config_Kernel.PUERTO_MEMORIA);
+	estructura_memoria.criterio = SC;
+	list_add(memorias, &estructura_memoria);
+	log_info(logger, "Memoria 1 asignada a lista de Memorias");
+	return;
 }
 
 
@@ -239,4 +354,5 @@ t_requestAMemoria crearEstructuraRequest(t_list* argumentosRequest, command_api 
 	dataRequest.comando = comandoRequest;
 	return dataRequest;
 }
+
 

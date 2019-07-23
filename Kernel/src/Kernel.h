@@ -12,6 +12,7 @@
 #ifndef SRC_KERNEL_H_
 #define SRC_KERNEL_H_
 
+#include <commons/collections/list.h>
 #include <Libraries.h>
 #include <API.h>
 #include <commons/log.h>
@@ -36,8 +37,11 @@ typedef struct {
 	char *ip;
 	int puerto;
 	criterio_memoria criterio;
-} t_memorias;
+} t_memoria;
 
+t_memoria estructura_memoria;
+
+t_list* memorias;
 t_list* memoriasSC;
 t_list* memoriasEC;
 t_list* memoriasSHC;
@@ -54,10 +58,13 @@ void parsear_archivo_lql(char*);
 
 void mostrarMetricas();
 
+void inicializar_memorias();
 void asignar_memoria_inicial();
+int asignar_memoria_criterio(char**);
+criterio_memoria convertir_string_criterio(char *);
+int verificar_existe_memoria(int);
 
 pthread_t thread_parser;
 
 
 #endif /* SRC_KERNEL_H_ */
-
