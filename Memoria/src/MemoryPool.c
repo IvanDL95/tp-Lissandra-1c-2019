@@ -12,26 +12,16 @@
 // This code doesn't have a license. Feel free to copy.
 
 #include "../src/MemoryPool.h"
+#include "MemoriaPrincipal.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 
-static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_socket);
-//void iniciar_gossiping();
-void iniciar_servidor_select();
 
-int conectarse_con_FS();
+//void iniciar_gossiping();
+
+static void thread_log(void (*log_func) (t_log*,char), t_log* log_file, const char* message);
 static void inicializar_memoria();
-t_segmento* crear_nuevo_segmento(char*);
-static void destruir_segmento(t_segmento*);
-t_pagina* buscar_key(t_segmento*, int key);
-static t_frame* solicitar_pagina(t_segmento*, const char* value, int key, flag);
-static void actualizar_pagina(char* tabla,t_pagina*,const char* new_value);
-static void actualizar_cola(int key, char* tabla);
-//static int asignar_key(tabla_paginas page_table);
-static t_frame* algoritmo_reemplazo(int *key/*, char* valor */);
-static void hacer_journal();
-static void page_destroyer(t_pagina*);
 
 int main(int argc, char** argv){
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_TRACE);
@@ -127,39 +117,38 @@ void get_configuracion(char* ruta){
 	config_destroy(archivo_configuracion);
 }
 
+/*********************************** API ****************************************************/
+
 char* ejecutar_API(command_api operacion, char** argumento){
 	log_debug(logger, "Ejecutando la API\n");
 
 	switch(operacion){
-	char* nombre_tabla;
-	int _is_equal_segmento(t_segmento* segmento){
-		// la lógica del list_find está al revés
-		log_trace(logger,"Compara %s con %s\n", nombre_tabla, segmento->nombre_tabla);
-		return !strcmp(nombre_tabla,segmento->nombre_tabla);
-	}
 		case SELECT:
 		{
-			if(argumento[0] == NULL || argumento[1] == NULL)
-				return "Campos invalidos";
+			//if(argumento[0] == NULL || argumento[1] == NULL)
+			//	return "Campos invalidos";
 			//if(!isdigit(argumento[1]))
 				//return "Key no numerica";
 
-			nombre_tabla = malloc(size_of_string(argumento[0]));
 			string_to_upper(argumento[0]);
-			strcpy(nombre_tabla,argumento[0]);
-			int key = atoi(argumento[1]);
-			// liberar_argumentos(char** argumento);
-			pthread_mutex_lock(&mutex_logger);
-			log_debug(logger, "SELECT %s %d\n", nombre_tabla, key);
-			pthread_mutex_unlock(&mutex_logger);
+			const char* nombre_tabla = argumento[0];
+			const int key = atoi(argumento[1]);
+
+			thread_log((void*)log_debug,logger,string_from_format("SELECT %s %d\n", nombre_tabla, key));
 
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
-			pthread_mutex_lock(&mutex_logger);
-			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
-			pthread_mutex_unlock(&mutex_logger);
-			free(nombre_tabla);
+			t_cola_LRU* ultima_pagina = queue_peek(cola_LRU);
+
+			if(!strcmp(ultima_pagina->segmento->nombre_tabla, nombre_tabla) && ultima_pagina->nro_pagina == key){
+				queue_pop(cola_LRU);
+				queue_push(cola_LRU,ultima_pagina);
+				char* valor = obtener_valor(ultima_pagina->segmento, key);
+				return string_from_format("El value es: %s", valor);
+			}
+
+			t_segmento* segmento_buscado = buscar_segmento(nombre_tabla);
 
 			//Si el segmento NO existe ejecuta el if
 			if(segmento_buscado == NULL)
@@ -168,93 +157,72 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
 			if(pagina_buscada != NULL){
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-				char* selected_value = malloc(tamanio_value);
-				memcpy(pagina_buscada->pagina->value,selected_value,tamanio_value);
+				char* selected_value = obtener_valor(segmento_buscado, key);
 				return string_from_format("El value es: %s", selected_value);
+			}else{
+
+				t_paquete* paquete_recibido = enviar_FS(argumento, SELECT);
+
+				if(paquete_recibido->codigo_operacion == cop_ok){
+					int desplazamiento = 0;
+					char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
+					solicitar_pagina(segmento_buscado,new_value,key,NO_MODIFICADO);
+					return string_from_format("El value es: %s", new_value);
+				}else
+					if(paquete_recibido->codigo_operacion == codigo_error)
+						return "La key solicitada no existe en la tabla";
 			}
-
-			t_list* lista_strings = list_create();
-			// for(int i=0; argumento[i] != NULL;i++)
-				list_add(lista_strings,argumento[0]);
-				list_add(lista_strings,argumento[1]);
-			enviar_listado_de_strings(socket_FS,lista_strings,SELECT);
-			t_paquete* paquete_recibido = recibir(socket_FS);
-
-			if(paquete_recibido->codigo_operacion == cop_ok){
-				int desplazamiento = 0;
-				char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
-				solicitar_pagina(segmento_buscado,new_value,key,NO_MODIFICADO);
-				return string_from_format("El value es: %s", new_value);
-			}
-			else if(paquete_recibido->codigo_operacion == codigo_error)
-				return "La key solicitada no existe en la tabla";
-
-			return "Recibí cualquier cosa";
 		}
 		break;
 
 		case INSERT:
 		{
-			if(argumento[0]== NULL || argumento[1]== NULL || argumento[2] == NULL)
-				return "Campos invalidos";
-			/*
-			if(!isdigit(argumento[1]))
-				return "Key no numerica";
-			*/
-			nombre_tabla = malloc(size_of_string(argumento[0]));
 			string_to_upper(argumento[0]);
-			strcpy(nombre_tabla,argumento[0]);
-			int key = atoi(argumento[1]);
+			const char* nombre_tabla = argumento[0];
+			const int key = atoi(argumento[1]);
 			const char* value = argumento[2];
-			// liberar_argumentos(char** argumento);
+
+			thread_log((void*)log_debug,logger,string_from_format("INSERT %s %d %s\n", nombre_tabla, key, value));
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
-			pthread_mutex_lock(&mutex_logger);
-			log_debug(logger, "INSERT %s %d %s\n", nombre_tabla, key, value);
-			pthread_mutex_unlock(&mutex_logger);
+			t_cola_LRU* ultima_pagina = queue_peek(cola_LRU);
 
-			t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
-
-			if(segmento_buscado == NULL)
-				segmento_buscado = crear_nuevo_segmento(nombre_tabla);
-			else
-				log_debug(logger,"Ya existe la tabla\n");
-
-
-
-			t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
-			if(pagina_buscada != NULL){
-				pthread_mutex_lock(&mutex_logger);
-				log_debug(logger,"Key encontrada. Actualizando value y Timestamp\n");
-				pthread_mutex_unlock(&mutex_logger);
-				actualizar_pagina(nombre_tabla,pagina_buscada, value);
-				free(nombre_tabla);
-				return string_from_format("Value Actualizado: %s\n Timestamp: %d", pagina_buscada->pagina->value, pagina_buscada->pagina->timestamp);
+			if(!strcmp(ultima_pagina->segmento->nombre_tabla, nombre_tabla) && ultima_pagina->nro_pagina == key){
+				thread_log((void*)log_debug,logger,string_from_format("Key encontrada. Actualizando value y Timestamp\n"));
+				actualizar_pagina(ultima_pagina->segmento,list_get(ultima_pagina->segmento->tabla, key), key, value);
+				return string_from_format("Value Actualizado");
 			}
-			else{
-				pthread_mutex_lock(&mutex_logger);
-				log_debug(logger,"Key no encontrada\n");
-				pthread_mutex_unlock(&mutex_logger);
-				t_frame* nueva_pagina = solicitar_pagina(segmento_buscado, value, key, MODIFICADO);
-				free(nombre_tabla);
-				return string_from_format("Nueva key creada: %d\n Value: %s\n Timestamp: %d", nueva_pagina->key, nueva_pagina->value, nueva_pagina->timestamp);
+
+			t_segmento* segmento_buscado = buscar_segmento(nombre_tabla);
+
+			if(segmento_buscado != NULL){
+				thread_log((void*)log_debug,logger,string_from_format("Ya existe la tabla\n"));
+				t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
+
+				if(pagina_buscada != NULL){
+					thread_log((void*)log_debug,logger,string_from_format("Key encontrada. Actualizando value y Timestamp\n"));
+					actualizar_pagina(segmento_buscado,pagina_buscada, key, value);
+					return string_from_format("Value Actualizado");
+				}else{
+					thread_log((void*)log_debug,logger,string_from_format("Key no encontrada\n"));
+					t_frame* nueva_pagina = solicitar_pagina(segmento_buscado, value, key, MODIFICADO);
+					return string_from_format("Nueva key creada");
+				}
+			}else{
+				thread_log((void*)log_debug,logger,string_from_format("No existe la tabla, creandola\n"));
+				t_segmento* nuevo_segmento = crear_nuevo_segmento(nombre_tabla);
+				t_frame* nueva_pagina = solicitar_pagina(nuevo_segmento, value, key, MODIFICADO);
+				return string_from_format("Nueva página creada");
 			}
 		}
 		break;
 
 		case CREATE:
 		{
-			pthread_mutex_lock(&mutex_logger);
-			log_debug(logger, "INSERT %s %s %s %s\n", argumento[0], argumento[1], argumento[2], argumento[3]);
-			pthread_mutex_unlock(&mutex_logger);
+			thread_log((void*)log_debug,logger,string_from_format("INSERT %s %s %s %s\n", argumento[0], argumento[1], argumento[2], argumento[3]));
 
-			t_list* lista_argumentos = list_create();
-			for(int i=0;i < 4;i++)
-				list_add(lista_argumentos, argumento[i]);
-
-			enviar_listado_de_strings(socket_FS,lista_argumentos,SELECT);
-			t_paquete* paquete_recibido = recibir(socket_FS);
+			t_paquete* paquete_recibido = enviar_FS(argumento, CREATE);
 
 			if(paquete_recibido->codigo_operacion == cop_ok)
 				return "Tabla creada exitosamente";
@@ -267,12 +235,43 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 		case DESCRIBE:
 			log_debug(logger, "DESCRIBE\n");
+			thread_log((void*)log_debug,logger, "DESCRIBE\n");
+			if(argumento[0] == NULL){
+				enviar(socket_FS,DESCRIBE,0,NULL);
+			}
+			else{
+				void* buffer = bufferear(argumento[0]);
+				enviar(socket_FS,DESCRIBE,size_of_string(argumento[0])+sizeof(int),buffer);
+			}
+			t_paquete* paquete_recibido = recibir(socket_FS);
+
+			//enviar(nuevo_socket,paquete_recibido);
+
+			return "DESCRIBE exitoso";
 			break;
 		case DROP:
 		{
 			log_debug(logger, "DROP\n %s", argumento[0]);
-			list_remove_and_destroy_by_condition(tabla_segmentos,(void*)_is_equal_segmento,(void*)destruir_segmento);
-			return "Drop exitoso\n";
+			destruir_segmento(argumento[0]);
+
+
+			void* buffer = bufferear(argumento[0]);
+			int tamanio_buffer = size_of_string(argumento[0]) + sizeof(int);
+			void* buffer2 =  malloc(tamanio_buffer);
+			int desplazamiento = 0;
+			serializar_string(buffer2,&desplazamiento,argumento[0]);
+
+			printf("tam_buffer: %d, valor desplazamiento: %d",tamanio_buffer, desplazamiento);
+			enviar(socket_FS, DROP,tamanio_buffer,buffer);
+
+			t_paquete* paquete_recibido = recibir(socket_FS);
+
+			if(paquete_recibido->codigo_operacion == cop_ok)
+				return "Drop exitoso\n";
+			else if(paquete_recibido->codigo_operacion == codigo_error)
+				return "Drop fallido\n";
+
+			return "Recibí cualquier cosa";
 		}
 		break;
 		case JOURNAL:
@@ -286,276 +285,54 @@ char* ejecutar_API(command_api operacion, char** argumento){
 	return NULL;
 }
 
+static void thread_log(void (*log_func) (t_log*,char), t_log* log_file, const char* message){
+	pthread_mutex_lock(&mutex_logger);
+
+	(*log_func)(log_file, message);
+
+	pthread_mutex_unlock(&mutex_logger);
+}
+
+static void* bufferear(char* string){
+	int desplazamiento = 0;
+	int tamanio_buffer = size_of_string(string) + sizeof(int);
+	void* buffer = malloc(tamanio_buffer);
+	serializar_string(buffer,&desplazamiento,string);
+	return buffer;
+}
 
 /****************** FUNCIONES DE MEMORIA **************************/
 
 static void inicializar_memoria(){
 	memoria_principal = calloc(CANTIDAD_FRAMES,TAMANIO_PAGINA);
+
 	for(int i=0;i<CANTIDAD_FRAMES;i++){
-		memoria_principal[i].value = malloc(tamanio_value);
+	    frame[i].memAddr = memoria_principal + (i*TAMANIO_PAGINA);
+	    frame[i].next = &frame[i+1];
 	}
+	frame_bitarray = bitarray_create_with_mode(memoria_principal, CANTIDAD_FRAMES, LSB_FIRST);
 	log_debug(logger, "Malloc memoria exitoso\n");
 
 	tabla_segmentos = list_create();
 }
 
-t_segmento* crear_nuevo_segmento(char* nombre_tabla){
-	t_segmento* segmento_nuevo = malloc(sizeof(t_segmento));
+/************************************* CONEXIONES ******************************************/
 
-	segmento_nuevo->nombre_tabla = malloc(size_of_string(nombre_tabla));
-	strcpy(segmento_nuevo->nombre_tabla, nombre_tabla);
-	//segmento_nuevo.nombre_tabla = nombre_tabla;
-	log_debug(logger, "Tabla: %s\n",segmento_nuevo->nombre_tabla);
-	segmento_nuevo->tabla = list_create();
+t_paquete* enviar_FS(char** argumentos, command_api op_code){
+		t_list* lista_argumentos = list_create();
+		int i = 0;
 
-
-	list_add(tabla_segmentos,segmento_nuevo);
-	log_debug(logger, "Nuevo segmento creado\n");
-	return segmento_nuevo;
-}
-
-static void destruir_segmento(t_segmento* segmento_a_destruir){
-	t_pagina* pagina_a_destruir = malloc(sizeof(t_pagina));
-
-	int is_seeked_key(t_cola_LRU* cola_element){
-		return cola_element->nro_pagina == pagina_a_destruir->pagina->key;
-	}
-
-	void cola_destroyer(t_cola_LRU* cola_element){
-		free(cola_element->nombre_tabla);
-		//free(cola_element);
-	}
-
-	for(int i=0;!list_is_empty(segmento_a_destruir->tabla);i++){
-		pagina_a_destruir = list_remove(segmento_a_destruir->tabla, i);
-		if(pagina_a_destruir == NULL)
-			continue;
-		list_remove_and_destroy_by_condition(cola_LRU->elements, (void*)is_seeked_key, (void*)cola_destroyer);
-	}
-	free(pagina_a_destruir);
-	list_destroy_and_destroy_elements(segmento_a_destruir->tabla,(void*)page_destroyer);
-	return;
-}
-
-static void page_destroyer(t_pagina* pagina_a_destruir){
-	int x = 0;
-	time_t y = 0;
-	memcpy(&pagina_a_destruir->pagina->key, &x,sizeof(int));
-	memcpy(&pagina_a_destruir->pagina->timestamp, &y,sizeof(time_t));
-	//memcpy(cola_element->registro->pagina->value,NULL,0);
-
-	free(pagina_a_destruir->pagina);
-	//free(pagina_a_destruir);?
-}
-
-t_pagina* buscar_key(t_segmento* segmento_encontrado, int key){
-	log_debug(logger,"Buscando key\n");
-	/*
-	 Ahora busca por índice en la tabla de páginas ya que key == índice lista
-
-	int _is_equal_key(t_pagina* registro){
-		// la lógica del list_find está al revés
-		log_trace(logger,"Compara %d con %d\n", key, registro->pagina->key);
-		return (key == registro->pagina->key);
-	}*/
-	t_cola_LRU* last_element = (t_cola_LRU*)queue_peek(cola_LRU);
-	if(last_element->nro_pagina == key && strcmp(last_element->nombre_tabla, segmento_encontrado->nombre_tabla))
-		return (t_pagina*)list_get(segmento_encontrado->tabla,key);
-
-	if(!list_is_empty(segmento_encontrado->tabla)){
-		t_pagina* current_page = list_get(segmento_encontrado->tabla, key);
-
-		//((t_pagina*)list_find(segmento_encontrado->tabla,(void*)_is_equal_key));
-		actualizar_cola(current_page->pagina->key,segmento_encontrado->nombre_tabla);
-		queue_push(cola_LRU,current_page);
-		return current_page;
-	}
-	else
-		return NULL;
-}
-
-static t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int key, flag flag_state){
-	log_debug(logger,"Solcitando página para value: %s\n", valor);
-	int i;
-
-	t_frame* frame_modificado = malloc(sizeof(t_frame));
-
-	for(i=0;i<CANTIDAD_FRAMES;i++){
-		if((memoria_principal[i].timestamp) == 0){
-			log_trace(logger,"Frame libre!: %d\n",i);
-			char* new_valor = malloc(tamanio_value);
-			strcpy(new_valor,valor);
-
-			memoria_principal[i].key= key;
-			memcpy(memoria_principal[i].value, new_valor, tamanio_value);
-			memoria_principal[i].timestamp = time(NULL);
-
-			frame_modificado = &memoria_principal[i];
-		}
-		log_trace(logger,"Frame ocupado: %d\n",i);
-	}
-
-	if(i == CANTIDAD_FRAMES){
-		log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
-
-		frame_modificado = algoritmo_reemplazo(&key/*, valor */);
-	}
-
-	t_pagina* nuevo_registro = malloc(sizeof(t_pagina));
-	nuevo_registro->pagina = frame_modificado;
-	nuevo_registro->modificado = flag_state;
-
-	list_add_in_index(current_segmento->tabla,key,nuevo_registro);
-	actualizar_cola(key,current_segmento->nombre_tabla);
-
-	return frame_modificado;
-}
-
-static void actualizar_pagina(char* tabla,t_pagina* pagina_encontrada, const char* new_value){
-	strcpy(pagina_encontrada->pagina->value, new_value);
-	pagina_encontrada->pagina->timestamp = time(NULL);
-	pagina_encontrada->modificado = MODIFICADO;
-	actualizar_cola(pagina_encontrada->pagina->key,tabla);
-}
-
-static void actualizar_cola(int key, char* tabla){
-
-	int is_seeked_queue_element(t_cola_LRU* cola_element){
-		return (cola_element->nro_pagina == key && strcmp(tabla,cola_element->nombre_tabla));
-	}
-
-	t_cola_LRU* elemento = (t_cola_LRU*)list_remove_by_condition(cola_LRU->elements,(void*)is_seeked_queue_element);
-
-	if(elemento != NULL)
-		queue_push(cola_LRU,elemento);
-	else{
-		t_cola_LRU* new_element = malloc(sizeof(t_cola_LRU));
-		new_element->nro_pagina = key;
-		new_element->nombre_tabla = malloc(size_of_string(tabla));
-		strcpy(new_element->nombre_tabla,tabla);
-
-		queue_push(cola_LRU,new_element);
-	}
-
-}
-/*
-static int asignar_key(tabla_paginas page_table){
-	if(list_is_empty(page_table))
-		return 1;
-
-	int _is_bigger_key(t_pagina* x, t_pagina* y){
-		return x->pagina->key > y->pagina->key;
-	}
-
-	t_list* tabla_ordenada_segun_key = list_sorted(page_table,(void*)_is_bigger_key);
-	int key_anterior = (((t_pagina*)list_get(tabla_ordenada_segun_key, 0))->pagina->key);
-
-	return key_anterior+1;
-}
-*/
-
-
-static t_frame* algoritmo_reemplazo(int* key/*, char* valor */){
-
-	t_cola_LRU* cabeza_lista = malloc(sizeof(t_cola_LRU));
-	while(!queue_is_empty(cola_LRU)){
-		cabeza_lista = queue_pop(cola_LRU);
-		char* nombre_tabla = malloc(size_of_string(cabeza_lista->nombre_tabla));
-
-		int _is_equal_segmento(t_segmento* segmento){
-			// la lógica del list_find está al revés
-			log_trace(logger,"Compara %s con %s\n", nombre_tabla, segmento->nombre_tabla);
-			return !strcmp(nombre_tabla,segmento->nombre_tabla);
+		void _add_array_element(char* argumento){
+			list_add(lista_argumentos,argumentos[i]);
+			i++;
 		}
 
-		t_segmento* segmento_buscado = (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
-
-		t_pagina* ultima_pagina = (t_pagina*)list_get(segmento_buscado->tabla, cabeza_lista->nro_pagina);
-
-
-		if(ultima_pagina->modificado == MODIFICADO){
-			queue_push(cola_LRU,cabeza_lista);
-			continue;
-		}
-
-
-		time_t* nuevo_timestamp = malloc(sizeof(time_t));
-		memmove(&(ultima_pagina->pagina->key), key, sizeof(int));
-		time(nuevo_timestamp);
-		memmove(&(ultima_pagina->pagina->timestamp), nuevo_timestamp, sizeof(time_t));
-		//memmove(ultima_pagina->pagina->value, valor, tamanio_value);
-
-		free(segmento_buscado);
-		free(ultima_pagina);
-		free(nuevo_timestamp);
-		free(cabeza_lista);
-		return ultima_pagina->pagina;
-	}
-
-	free(cabeza_lista);
-	printf("Memoria está FULL, iniciando proceso de journal\n");
-	esta_full_memoria = true;
-	hacer_journal();
-	return NULL;
+		list_iterate(lista_argumentos,(void*)_add_array_element);
+		enviar_listado_de_strings(socket_FS,lista_argumentos,op_code);
+		return recibir(socket_FS);
 }
 
-static void hacer_journal(){
-	log_debug(logger, "Acá hay que bloquear todo\n");
-	if(esta_full_memoria){
-		//enviar todas las paginas al FS y vaciar todoo
-		t_list* listado_a_enviar = list_create();
-		t_segmento* current_segmento = malloc(sizeof(t_segmento));
-
-		for(int i=0;!list_is_empty(tabla_segmentos);i++){
-			current_segmento = (t_segmento*)list_remove(tabla_segmentos,i);
-			list_add_all(listado_a_enviar,current_segmento->tabla);
-		}
-		enviar_listado_de_strings(socket_FS,listado_a_enviar,INSERT);
-		queue_clean(cola_LRU);
-		esta_full_memoria = false;
-	}else{
-		t_list* modified_pages_list = list_create();
-		t_segmento* current_segmento = malloc(sizeof(t_segmento));
-		int key;
-
-		/*	Matchea el elemento que tenga el mismo nombre tabla y key que la pagina filtrada	*/
-
-		int _has_same_key_and_table(t_cola_LRU* elemento){
-			if(!strcmp(current_segmento->nombre_tabla,elemento->nombre_tabla) && elemento->nro_pagina == key)
-				return 1;
-			else
-				return 0;
-		}
-
-		/* Filtrar elementos y luego quitarlos de la cola */
-
-		int _not_modified(t_pagina* pagina_actual){
-			if(pagina_actual->modificado)
-				return 0;
-			else{
-				key = pagina_actual->pagina->key;
-				list_remove_by_condition(cola_LRU->elements,(void*)_has_same_key_and_table);
-				return 1;
-			}
-		}
-
-		t_list* tabla_segmentos_aux = list_create();
-		tabla_segmentos_aux = list_duplicate(tabla_segmentos);
-
-
-		for(int i=0;!list_is_empty(tabla_segmentos_aux);i++){
-			current_segmento = (t_segmento*)list_remove(tabla_segmentos_aux,i);
-			list_add_all(modified_pages_list,list_filter(current_segmento->tabla,(void*)_not_modified));
-		}
-
-		enviar_listado_de_strings(socket_FS,modified_pages_list,INSERT);
-	}
-	return;
-}
-
-/****************** CONEXIONES **************************/
-
-int conectarse_con_FS(){
+static int conectarse_con_FS(){
 	un_socket socket_recibido;
 	do socket_recibido = conectar_a(config_MP.IP_FS, config_MP.PUERTO_FS);
 	while(socket_recibido==-1);
