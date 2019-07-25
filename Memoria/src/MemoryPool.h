@@ -55,4 +55,6 @@ typedef enum flag_full estado_memoria;
 estado_memoria ocuapdo;
 */
 
+un_socket socket_kernel;
+
 #endif /* SRC_MEMORYPOOL_H_ */

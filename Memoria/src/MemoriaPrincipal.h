@@ -19,32 +19,29 @@
 
 int tamanio_value;
 
-#define TAMANIO_PAGINA (sizeof(int)+sizeof(time_t)+tamanio_value)
+#define TAMANIO_PAGINA (sizeof(uint32_t)+sizeof(time_t)+tamanio_value)
 #define CANTIDAD_FRAMES config_MP.TAM_MEM/TAMANIO_PAGINA
+#define KEY_OFFSET sizeof(uint32_t)
+#define TIME_OFFSET sizeof(time_t)
 
+t_log* logger_mem;
 
+typedef unsigned char* byte;
+static void *memoria_principal;
 
-typedef char byte;
-static byte *memoria_principal;
-t_bitarray* frame_bitarray;
-bool esta_full_memoria;
+static bool esta_full_memoria;
 
 typedef struct _frame{
-    struct _frame *next;
-    byte* memAddr;
+	byte base;
+	size_t offset;
 }t_frame;
 
-t_frame* frame;
+static t_frame* frame;
+static t_bitarray* frame_bitarray;
+static char* bitarray_block;
 
-/*
-typedef struct{
-	//TODO ver cuanto mide value luego de obtener el tamaño
-	int key;
-	time_t timestamp;
-	void* value;
-}t_frame;
-*/
-
+void inicializar_memoria();
+void hacer_journal();
 
 /************** SEGMENTOS ****************/
 
@@ -80,7 +77,6 @@ t_frame* solicitar_pagina(t_segmento*, const char* value, int key, flag);
 void actualizar_pagina(t_segmento* tabla,t_pagina*,const int key,const char* new_value);
 char* obtener_valor(t_segmento* segmento, int nro_pag);
 //  int asignar_key(tabla_paginas page_table);
-void hacer_journal();
 
 /************* COLA LRU **************************/
 

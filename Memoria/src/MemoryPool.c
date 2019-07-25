@@ -21,7 +21,7 @@
 //void iniciar_gossiping();
 
 static void thread_log(void (*log_func) (t_log*,char), t_log* log_file, const char* message);
-static void inicializar_memoria();
+
 
 int main(int argc, char** argv){
 	logger = log_create("memoria.log", "MemoryPool", 1, LOG_LEVEL_TRACE);
@@ -50,7 +50,7 @@ int main(int argc, char** argv){
 	}
 
 	inicializar_memoria();
-	log_info(logger, "Memoria Principal reservada\n");
+	log_debug(logger, "Memoria Principal reservada\n");
 
 	/*
 	crear_nuevo_segmento("TABLA7");
@@ -78,17 +78,6 @@ int main(int argc, char** argv){
 	log_destroy(logger);
 
 	exit(EXIT_SUCCESS);
-
-	//terminar_programa(logger, (int*)-1);
-	/*
-	t_gossip* memory[2];
-
-	memory[0] = (t_gossip*)list_get(tabla_gossiping,0);
-	memory[1] = (t_gossip*)list_get(tabla_gossiping,1);
-
-	log_debug(logger, "Puerto memoria %d : %s , IP memoria 0: %s\n", memory[0]->numero_memoria,memory[0]->Puerto,memory[0]->dir_IP);
-	log_debug(logger, "Puerto memoria %d : %s , IP memoria 1: %s\n", memory[1]->numero_memoria,memory[1]->Puerto,memory[1]->dir_IP);
-	*/
 }
 
 void get_configuracion(char* ruta){
@@ -245,7 +234,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			}
 			t_paquete* paquete_recibido = recibir(socket_FS);
 
-			//enviar(nuevo_socket,paquete_recibido);
+			enviar(socket_kernel,DESCRIBE,paquete_recibido->tamanio,paquete_recibido);
 
 			return "DESCRIBE exitoso";
 			break;
@@ -299,21 +288,6 @@ static void* bufferear(char* string){
 	void* buffer = malloc(tamanio_buffer);
 	serializar_string(buffer,&desplazamiento,string);
 	return buffer;
-}
-
-/****************** FUNCIONES DE MEMORIA **************************/
-
-static void inicializar_memoria(){
-	memoria_principal = calloc(CANTIDAD_FRAMES,TAMANIO_PAGINA);
-
-	for(int i=0;i<CANTIDAD_FRAMES;i++){
-	    frame[i].memAddr = memoria_principal + (i*TAMANIO_PAGINA);
-	    frame[i].next = &frame[i+1];
-	}
-	frame_bitarray = bitarray_create_with_mode(memoria_principal, CANTIDAD_FRAMES, LSB_FIRST);
-	log_debug(logger, "Malloc memoria exitoso\n");
-
-	tabla_segmentos = list_create();
 }
 
 /************************************* CONEXIONES ******************************************/
@@ -382,6 +356,7 @@ static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_so
 				argumentos[i] = list_get(lista_argumentos,i);
 			}
 			list_destroy(lista_argumentos);
+			socket_kernel = nuevo_socket;
 			ejecutar_API(comando, argumentos);
 			//free(argumentos);
 		}
