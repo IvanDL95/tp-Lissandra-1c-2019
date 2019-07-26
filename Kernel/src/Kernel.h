@@ -34,12 +34,12 @@ typedef enum Criterios_Memoria criterio_memoria;
 
 typedef struct {
 	int id;
-	char *ip;
+	char* ip;
 	int puerto;
-	criterio_memoria criterio;
+	int socket_memoria;
 } t_memoria;
 
-t_memoria estructura_memoria;
+//t_memoria estructura_memoria;
 
 t_list* memorias;
 t_list* memoriasSC;
@@ -52,17 +52,19 @@ int tamanio_value;
 
 t_requestAMemoria crearEstructuraRequest(t_list*, command_api);
 
-int conectar_con_Memoria();
+int conectar_con_Memoria(char*, char*);
 
 void parsear_archivo_lql(char*);
 
 void mostrarMetricas();
 
 void inicializar_memorias();
-void asignar_memoria_inicial();
+void asignar_memoria(t_memoria*);
 int asignar_memoria_criterio(char**);
 criterio_memoria convertir_string_criterio(char *);
 int verificar_existe_memoria(int);
+
+void journal_memorias();
 
 pthread_t thread_parser;
 

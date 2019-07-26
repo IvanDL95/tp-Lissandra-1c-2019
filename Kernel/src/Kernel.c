@@ -15,7 +15,6 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "Globals.h"
 
 
@@ -27,13 +26,13 @@ int main(int argc, char** argv){
 
 	get_configuracion(argv[1]);
 
-	if (conectar_con_Memoria() == -1) return -1;
+	inicializar_memorias();
+
+	if (conectar_con_Memoria(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA) == -1) return -1;
 
 	arg_planificacion[0] = config_Kernel.QUANTUM;
 	arg_planificacion[1] = config_Kernel.MULTIPROCESAMIENTO;
 	pthread_create(&thread_planificador, NULL, (void*) planificador, arg_planificacion);
-
-	inicializar_memorias();
 
 	iniciar_consola(logger);
 
@@ -97,6 +96,7 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			break;
 		case JOURNAL:
 			log_info(logger, "Ejecutar JOURNAL en cada Memoria Asociada\n");
+			journal_memorias();
 			break;
 		case ADD:
 			log_info(logger, "Ejecutando comando ADD\n");
@@ -125,28 +125,40 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 	return NULL;
 }
 
-int conectar_con_Memoria(){
-	socket_Memoria = conectar_a(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA);
+int conectar_con_Memoria(char* ip_memoria, char* puerto_memoria){
+	t_memoria* nueva_memoria;
+	int un_socket;
+	un_socket = conectar_a(ip_memoria, puerto_memoria);
 
-	if(socket_Memoria != -1){
-		log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",config_Kernel.IP_MEMORIA,config_Kernel.PUERTO_MEMORIA,socket_Memoria);
+	if(un_socket != -1){
+		log_info(logger, "Conectado a la Memoria en %s:%s / socket:%d",ip_memoria,puerto_memoria,un_socket);
 	}else{
 		log_error(logger, "No se pudo conectar a la Memoria.\n");
 		return -1;
 	}
 
-	if (realizar_handshake(socket_Memoria)) //recibir TAMANIO_VALUE
+	if (realizar_handshake(un_socket)) //recibir TAMANIO_VALUE
 		log_info(logger,"Handshake con Memoria : Realizado");
 	else
 		log_error(logger, "Handshake con Memoria : No Realizado");
 	t_paquete* paquete_recibido = malloc(sizeof(t_paquete));
+	// Debo recibir a qué memoria me estoy conectando
 	/* Ver de recibir el paquete de vuelta */
 //	paquete_recibido = recibir(socket_Memoria);
 //
 //	if(paquete_recibido->codigo_operacion == cop_ok){
 //			tamanio_value = deserializar_int(paquete_recibido->data, 0);
 //	}
+
+	nueva_memoria->id = 1;
+	nueva_memoria->ip = ip_memoria;
+	nueva_memoria->puerto = atoi(puerto_memoria);
+	nueva_memoria->socket_memoria = un_socket;
+
+	asignar_memoria(nueva_memoria);
+
 	liberar_paquete(paquete_recibido);
+
 	return 0;
 }
 
@@ -252,21 +264,16 @@ void inicializar_memorias(){
 	memoriasSC = list_create();
 	memoriasEC = list_create();
 	memoriasSHC = list_create();
-	asignar_memoria_inicial();
-
 	return;
 }
 
-void asignar_memoria_inicial() {
-	estructura_memoria.id = 1;
-	estructura_memoria.ip = config_Kernel.IP_MEMORIA;
-	estructura_memoria.puerto = atoi(config_Kernel.PUERTO_MEMORIA);
-	estructura_memoria.criterio = SC;
-	list_add(memorias, &estructura_memoria);
-	log_info(logger, "Memoria 1 asignada a lista de Memorias");
+void asignar_memoria(t_memoria* estructura_memoria) {
+	t_memoria* estructura_prueba;
+	list_add(memorias, estructura_memoria);
+	log_info(logger, "Memoria asignada a lista de Memorias");
+	estructura_prueba = list_get(memorias, 0);
 	return;
 }
-
 
 //------------ Funciones de API ------------//
 
@@ -330,6 +337,17 @@ void parsear_archivo_lql(char* path_archivo_lql) {
 	//return;
 }
 
+void journal_memorias() {
+
+	//enviar_listado_de_strings(requestExec.socketMemoria, requestExec.listaArgumentos, requestExec.comando);
+
+	void ejecutar_journal(t_memoria* una_memoria) {
+		//enviar(una_memoria->socket_memoria, int codigo_operacion, int tamanio, void * data);
+	}
+	list_iterate(memorias, (void*)ejecutar_journal);
+
+	return;
+}
 
 void mostrarMetricas() {
 	printf("\x1b[32m////////////////////////////////////////////////////////\n\t\t\tMetricas\x1b[0m\n");
