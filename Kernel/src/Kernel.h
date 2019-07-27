@@ -46,6 +46,16 @@ t_list* memoriasSC;
 t_list* memoriasEC;
 t_list* memoriasSHC;
 
+typedef struct {
+	int id;
+	char* table_name;
+	criterio_memoria criterio;
+}t_metadata_tabla;
+
+t_metadata_tabla metadata_tabla;
+
+t_list* tabla_metadatas;
+
 t_requestAMemoria requestAPlanificar;
 
 int tamanio_value;
