@@ -17,6 +17,8 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <sys/time.h>
+#include <bits/time.h>
 #include <fcntl.h>
 #include <linux/if_link.h>
 #include <stdarg.h>
@@ -27,7 +29,7 @@
 #include "ClientServer.h"
 #define MAX_LEN 128
 
-typedef char* byte;
+//typedef char* byte;
 
 /**	@NAME: log_and_free
  * 	@DESC: Loguea un mensaje y libera la memoria reservada por el string.

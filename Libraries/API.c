@@ -33,6 +33,12 @@ void iniciar_consola(t_log* logger) {
 			if(operacion == INSERT) {
 				string_value = strtok(aux, "\"");
 				string_value = strtok(NULL, "\"");
+				if(string_value == NULL){
+					printf("Faltan las comillas del valor\n");
+					comando_consola = NULL;
+					free(comando_consola);
+					continue;
+				}
 				strcpy(argumentos[2], string_value);
 				argumentos[3] = NULL;
 			}
