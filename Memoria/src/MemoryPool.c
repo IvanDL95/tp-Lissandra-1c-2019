@@ -121,19 +121,19 @@ char* ejecutar_API(command_api operacion, char** argumento){
 
 			string_to_upper(argumento[0]);
 			const char* nombre_tabla = argumento[0];
-			const int key = atoi(argumento[1]);
+			const KEY_T key = (KEY_T)atoi(argumento[1]);
 
 			thread_log((void*)log_debug,logger,string_from_format("SELECT %s %d\n", nombre_tabla, key));
 
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
-			t_cola_LRU* ultima_pagina = queue_peek(cola_LRU);
+			t_cola_LRU* ultima_pagina = revisar_cola(nombre_tabla, key);
 
-			if(!strcmp(ultima_pagina->segmento->nombre_tabla, nombre_tabla) && ultima_pagina->nro_pagina == key){
+			if(ultima_pagina != NULL){
 				queue_pop(cola_LRU);
 				queue_push(cola_LRU,ultima_pagina);
-				char* valor = obtener_valor(ultima_pagina->segmento, key);
+				char* valor = obtener_valor(ultima_pagina->segmento, ultima_pagina->nro_pagina);
 				return string_from_format("El value es: %s", valor);
 			}
 
@@ -146,7 +146,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			t_pagina* pagina_buscada = buscar_key(segmento_buscado, key);
 			if(pagina_buscada != NULL){
 				//Si encuentra la key devuelve su value y la retorna, sino sale del if y continua
-				char* selected_value = obtener_valor(segmento_buscado, key);
+				char* selected_value = obtener_valor(segmento_buscado, pagina_buscada->nro);
 				return string_from_format("El value es: %s", selected_value);
 			}else{
 
@@ -155,7 +155,8 @@ char* ejecutar_API(command_api operacion, char** argumento){
 				if(paquete_recibido->codigo_operacion == cop_ok){
 					int desplazamiento = 0;
 					char* new_value = deserializar_string(paquete_recibido->data,&desplazamiento /* 0 */ );
-					solicitar_pagina(segmento_buscado,new_value,key,NO_MODIFICADO);
+					t_pagina* nueva_pagina = solicitar_pagina(segmento_buscado,new_value,key);
+					nueva_pagina->modificado = NO_MODIFICADO;
 					return string_from_format("El value es: %s", new_value);
 				}else
 					if(paquete_recibido->codigo_operacion == codigo_error)
@@ -168,18 +169,18 @@ char* ejecutar_API(command_api operacion, char** argumento){
 		{
 			string_to_upper(argumento[0]);
 			const char* nombre_tabla = argumento[0];
-			const int key = atoi(argumento[1]);
+			const KEY_T key = (KEY_T)atoi(argumento[1]);
 			const char* value = argumento[2];
 
 			thread_log((void*)log_debug,logger,string_from_format("INSERT %s %d %s\n", nombre_tabla, key, value));
 			if(size_of_string(argumento[1]) > tamanio_value)
 				return "Longitud del value muy grande, 'out of bounds'";
 
-			t_cola_LRU* ultima_pagina = queue_peek(cola_LRU);
+			t_cola_LRU* ultima_pagina = revisar_cola(nombre_tabla, key);
 
-			if(!strcmp(ultima_pagina->segmento->nombre_tabla, nombre_tabla) && ultima_pagina->nro_pagina == key){
+			if(ultima_pagina != NULL){
 				thread_log((void*)log_debug,logger,string_from_format("Key encontrada. Actualizando value y Timestamp\n"));
-				actualizar_pagina(ultima_pagina->segmento,list_get(ultima_pagina->segmento->tabla, key), key, value);
+				actualizar_pagina(ultima_pagina->segmento,list_get(ultima_pagina->segmento->tabla, ultima_pagina->nro_pagina), key, value);
 				return string_from_format("Value Actualizado");
 			}
 
@@ -195,13 +196,15 @@ char* ejecutar_API(command_api operacion, char** argumento){
 					return string_from_format("Value Actualizado");
 				}else{
 					thread_log((void*)log_debug,logger,string_from_format("Key no encontrada\n"));
-					t_frame* nueva_pagina = solicitar_pagina(segmento_buscado, value, key, MODIFICADO);
+					t_pagina* nueva_pagina = solicitar_pagina(segmento_buscado, value, key);
+					nueva_pagina->modificado = MODIFICADO;
 					return string_from_format("Nueva key creada");
 				}
 			}else{
 				thread_log((void*)log_debug,logger,string_from_format("No existe la tabla, creandola\n"));
 				t_segmento* nuevo_segmento = crear_nuevo_segmento(nombre_tabla);
-				t_frame* nueva_pagina = solicitar_pagina(nuevo_segmento, value, key, MODIFICADO);
+				t_pagina* nueva_pagina = solicitar_pagina(nuevo_segmento, value, key);
+				nueva_pagina->modificado = MODIFICADO;
 				return string_from_format("Nueva página creada");
 			}
 		}
@@ -234,7 +237,7 @@ char* ejecutar_API(command_api operacion, char** argumento){
 			}
 			t_paquete* paquete_recibido = recibir(socket_FS);
 
-			enviar(socket_kernel,DESCRIBE,paquete_recibido->tamanio,paquete_recibido);
+			enviar(socket_kernel,DESCRIBE,paquete_recibido->tamanio - (2 * sizeof(int)),paquete_recibido);
 
 			return "DESCRIBE exitoso";
 			break;
@@ -277,14 +280,15 @@ char* ejecutar_API(command_api operacion, char** argumento){
 static void thread_log(void (*log_func) (t_log*,char), t_log* log_file, const char* message){
 	pthread_mutex_lock(&mutex_logger);
 
-	(*log_func)(log_file, message);
+	log_debug(log_file,message);
+	//(*log_func)(log_file, message);
 
 	pthread_mutex_unlock(&mutex_logger);
 }
 
 static void* bufferear(char* string){
 	int desplazamiento = 0;
-	int tamanio_buffer = size_of_string(string) + sizeof(int);
+	size_t tamanio_buffer = size_of_string(string) + sizeof(int);
 	void* buffer = malloc(tamanio_buffer);
 	serializar_string(buffer,&desplazamiento,string);
 	return buffer;
@@ -357,7 +361,13 @@ static void administrar_conexion(t_paquete* paquete_recibido, un_socket nuevo_so
 			}
 			list_destroy(lista_argumentos);
 			socket_kernel = nuevo_socket;
-			ejecutar_API(comando, argumentos);
+
+			char* retorno = ejecutar_API(comando, argumentos);
+			if(comando == SELECT){
+				retorno = retorno + size_of_string("El value es:");
+				void* buffer = bufferear(retorno);
+				enviar(socket_kernel,cop_ok,size_of_string(retorno)+sizeof(int),buffer);
+			}
 			//free(argumentos);
 		}
 		liberar_paquete(paquete_recibido);

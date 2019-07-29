@@ -8,28 +8,33 @@
 
 /******************* PRIVATE FUNCTIONS DECLARE ********************************/
 
-static t_frame* copiar_a_memoria(int frame, const int key, const time_t, const char* value);
-static char* copiar_desde_memoria(byte posicion_en_memoria);
+static t_frame* copiar_a_memoria(t_frame* frame, const KEY_T, const TIME_T, const char* value);
+static struct mem_struct* copiar_desde_memoria(t_frame*);
 static void page_destroyer(t_pagina*);
 static void segment_destroyer(t_segmento*);
-static void actualizar_cola(int key, t_segmento* tabla);
-static t_frame* algoritmo_reemplazo(const int key, const char* valor);
+static void actualizar_cola(int nro_pag, t_segmento* tabla);
+static t_frame* algoritmo_reemplazo(const KEY_T, const char* valor);
+static int _misma_tabla(t_cola_LRU* ultima_pagina,const char* nombre_tabla);
 
 /******************************************** PUBLIC *************************************/
 
 void inicializar_memoria(){
-	memoria_principal = calloc(CANTIDAD_FRAMES,TAMANIO_PAGINA);
+	memoria_principal = calloc(1,config_MP.TAM_MEM);
+	bitarray_block = malloc(CANTIDAD_FRAMES);
 	frame = malloc(sizeof(t_frame)*CANTIDAD_FRAMES);
+	frame_bitarray = bitarray_create_with_mode(bitarray_block, CANTIDAD_FRAMES/8, LSB_FIRST);
 
 	frame[0].base = memoria_principal;
+	frame[0].nro_frame = 0;
 	frame[0].offset = TAMANIO_PAGINA;
 
 	for(int i=1;i<CANTIDAD_FRAMES;i++){
 	    frame[i].base = frame[i-1].base + frame[i-1].offset;
+	    frame[i].nro_frame = i;
 	    frame[i].offset = TAMANIO_PAGINA;
 	}
 	log_debug(logger, "Malloc memoria exitoso\n");
-	frame_bitarray = bitarray_create_with_mode(bitarray_block, CANTIDAD_FRAMES/CHAR_BIT, LSB_FIRST);
+
 
 	tabla_segmentos = list_create();
 }
@@ -69,46 +74,44 @@ t_segmento* buscar_segmento(const char* nombre_tabla){
 	return (t_segmento*)list_find(tabla_segmentos,(void*)_is_equal_segmento);
 }
 
-t_pagina* buscar_key(t_segmento* segmento_encontrado, int key){
+t_pagina* buscar_key(t_segmento* segmento_encontrado, KEY_T key){
 	log_debug(logger,"Buscando key\n");
 	/*
 	 Ahora busca por índice en la tabla de páginas ya que key == índice lista
-
-	int _is_equal_key(t_pagina* registro){
+	*/
+	int _is_equal_key(t_pagina* pagina){
+		KEY_T key_actual = obtener_key(pagina);
 		// la lógica del list_find está al revés
-		log_trace(logger,"Compara %d con %d\n", key, registro->pagina->key);
-		return (key == registro->pagina->key);
-	}*/
-	t_cola_LRU* last_element = (t_cola_LRU*)queue_peek(cola_LRU);
-	if(last_element->nro_pagina == key && strcmp(last_element->segmento->nombre_tabla, segmento_encontrado->nombre_tabla))
-		return (t_pagina*)list_get(segmento_encontrado->tabla,key);
+		log_trace(logger,"Compara %d con %d\n", key, key_actual);
+		return (key == key_actual);
+	}
 
 	if(!list_is_empty(segmento_encontrado->tabla)){
-		t_pagina* current_page = list_get(segmento_encontrado->tabla, key);
-
-		//((t_pagina*)list_find(segmento_encontrado->tabla,(void*)_is_equal_key));
-		actualizar_cola(key,segmento_encontrado);
-		queue_push(cola_LRU,current_page);
-		return current_page;
+		t_pagina* current_page = ((t_pagina*)list_find(segmento_encontrado->tabla,(void*)_is_equal_key));
+		if(current_page != NULL){
+			actualizar_cola(current_page->nro,segmento_encontrado);
+			return current_page;
+		}else
+			return NULL;
 	}
 	else
 		return NULL;
 }
 
-t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int key, flag flag_state){
+t_pagina* solicitar_pagina(t_segmento* current_segmento, const char* valor, const KEY_T key){
 	log_debug(logger,"Solcitando página para value: %s\n", valor);
 	int i;
 
-	t_frame* frame_modificado = malloc(sizeof(t_frame));
+	t_frame* frame_modificado;
 
 	for(i=0;i<CANTIDAD_FRAMES;i++){
-		if(bitarray_test_bit(frame_bitarray,i)){
+		if(!bitarray_test_bit(frame_bitarray,i)){
 			log_trace(logger,"Frame libre!: %d\n",i);
 			char* new_valor = malloc(tamanio_value);
 			strcpy(new_valor,valor);
 
 			//te devuelve el puntero a la pagina asignada
-			frame_modificado = copiar_a_memoria(i, key,time(NULL),new_valor);
+			frame_modificado = copiar_a_memoria(&frame[i], key,(TIME_T)time(NULL),new_valor);
 			break;
 		}
 		log_trace(logger,"Frame ocupado: %d\n",i);
@@ -118,28 +121,47 @@ t_frame* solicitar_pagina(t_segmento* current_segmento, const char* valor, int k
 		log_info(logger,"Todas las páginas están ocupadas. Ejecutando algoritmo de reemplazo\n");
 
 		frame_modificado = algoritmo_reemplazo(key, valor);
+		if(frame_modificado == NULL && esta_full_memoria){
+			printf("Memoria está FULL, iniciando proceso de journal\n");
+			char* nombre_tabla = current_segmento->nombre_tabla;
+			hacer_journal();
+			t_segmento* nuevo_segmento = crear_nuevo_segmento(nombre_tabla);
+			return solicitar_pagina(nuevo_segmento, valor, key);
+		}
 	}
 
 	t_pagina* nuevo_registro = malloc(sizeof(t_pagina));
-	nuevo_registro->pagina = frame_modificado;
-	nuevo_registro->nro_frame = i;
-	nuevo_registro->modificado = flag_state;
+	nuevo_registro->frame = frame_modificado;
+	//nuevo_registro->modificado = flag_state;
 
-	list_add_in_index(current_segmento->tabla,key,nuevo_registro);
-	actualizar_cola(key,current_segmento);
+	list_add(current_segmento->tabla,nuevo_registro);
+	nuevo_registro->nro = current_segmento->tabla->elements_count - 1;
+	actualizar_cola(nuevo_registro->nro,current_segmento);
 
-	return frame_modificado;
+	return nuevo_registro;
 }
 
 char* obtener_valor(t_segmento* segmento, int nro_pag){
 	t_pagina* pagina = list_get(segmento->tabla, nro_pag);
-	return copiar_desde_memoria(pagina->pagina->base);
+	struct mem_struct* key_ts_val = copiar_desde_memoria(pagina->frame);
+	return key_ts_val->value;
 }
 
-void actualizar_pagina(t_segmento* tabla,t_pagina* pagina_encontrada,const int key, const char* nuevo_valor){
-	copiar_a_memoria(pagina_encontrada->nro_frame, 0, time(NULL), nuevo_valor);
+TIME_T obtener_timestamp(t_segmento* segmento, int nro_pag){
+	t_pagina* pagina = list_get(segmento->tabla, nro_pag);
+	struct mem_struct* key_ts_val = copiar_desde_memoria(pagina->frame);
+	return key_ts_val->timestamp;
+}
+
+KEY_T obtener_key(t_pagina* pagina){
+	struct mem_struct* key_ts_val = copiar_desde_memoria(pagina->frame);
+	return key_ts_val->key;
+}
+
+void actualizar_pagina(t_segmento* tabla,t_pagina* pagina_encontrada, const KEY_T key, const char* nuevo_valor){
+	copiar_a_memoria(pagina_encontrada->frame, key, (TIME_T)time(NULL), nuevo_valor);
 	pagina_encontrada->modificado = MODIFICADO;
-	actualizar_cola(key,tabla);
+	actualizar_cola(pagina_encontrada->nro,tabla);
 }
 
 //TODO rehacer JOURNAL
@@ -164,7 +186,7 @@ void hacer_journal(){
 	}else{
 		t_list* modified_pages_list = list_create();
 		t_segmento* current_segmento = malloc(sizeof(t_segmento));
-		int key;
+		KEY_T key;
 
 		/*	Matchea el elemento que tenga el mismo nombre tabla y key que la pagina filtrada	*/
 
@@ -181,9 +203,9 @@ void hacer_journal(){
 			if(pagina_actual->modificado)
 				return 0;
 			else{
-				key = *(int*)pagina_actual->pagina->base;
+				key = *(int*)pagina_actual->frame->base;
 				list_remove_by_condition(cola_LRU->elements,(void*)_has_same_key_and_table);
-				bitarray_clean_bit(frame_bitarray, pagina_actual->nro_frame);
+				bitarray_clean_bit(frame_bitarray, pagina_actual->frame->nro_frame);
 				return 1;
 			}
 		}
@@ -204,37 +226,58 @@ void hacer_journal(){
 
 /******************* PRIVATE FUNCTIONS IMPLE ********************************/
 
-static t_frame* copiar_a_memoria(int nro_frame, const int key, const time_t timestamp, const char* value){
+static t_frame* copiar_a_memoria(t_frame* frame, const KEY_T key, const TIME_T timestamp, const char* value){
+	bitarray_set_bit(frame_bitarray,frame->nro_frame);
 
-
-	memmove(frame[nro_frame].base, &key, KEY_OFFSET);
-	memmove(frame[nro_frame].base+KEY_OFFSET, &timestamp, TIME_OFFSET);
-	memmove(frame[nro_frame].base+KEY_OFFSET+TIME_OFFSET, value, tamanio_value);
+	memcpy(frame->base, &key, KEY_OFFSET);
+	memcpy(frame->base+KEY_OFFSET, &timestamp, TIME_OFFSET);
+	strcpy(frame->base+KEY_OFFSET+TIME_OFFSET, value);
 
 	log_trace(logger,"Key: %d, Timestamp: %d, Value: %s",
-			*(uint32_t*)(frame[nro_frame].base),
-			*(time_t*)(frame[nro_frame].base+KEY_OFFSET),
-			(char*)(frame[nro_frame].base+KEY_OFFSET+TIME_OFFSET));
-
-	bitarray_set_bit(frame_bitarray,nro_frame);
+			*(KEY_T*)(frame->base),
+			*(TIME_T*)(frame->base+KEY_OFFSET),
+			(char*)(frame->base+KEY_OFFSET+TIME_OFFSET));
 
 	return frame;
 }
 
-static char* copiar_desde_memoria(byte posicion_en_memoria){
-	time_t timestamp;
-	char* value = malloc(tamanio_value);
+static struct mem_struct* copiar_desde_memoria(t_frame* frame_a_copiar){
+	struct mem_struct* copy_mem = malloc(sizeof(struct mem_struct));
 
-	memmove(&timestamp, posicion_en_memoria+KEY_OFFSET, TIME_OFFSET);
-	memmove(value,posicion_en_memoria+KEY_OFFSET+TIME_OFFSET, tamanio_value);
+	memcpy(&copy_mem->key, frame_a_copiar->base, KEY_OFFSET);
+	memcpy(&copy_mem->timestamp,frame_a_copiar->base+KEY_OFFSET, TIME_OFFSET);
+	copy_mem->value = malloc(tamanio_value);
+	strcpy(copy_mem->value,frame_a_copiar->base+KEY_OFFSET+TIME_OFFSET);
 
-	return value;
+	return copy_mem;
 }
 
-static void actualizar_cola(int key, t_segmento* tabla){
+t_cola_LRU* revisar_cola(const char* nombre_tabla, KEY_T key){
+	if(queue_is_empty(cola_LRU))
+		return NULL;
+
+	t_cola_LRU* ultima_pagina = list_get(cola_LRU->elements,cola_LRU->elements->elements_count - 1);
+
+	if(_misma_tabla(ultima_pagina,nombre_tabla)){
+		t_pagina* pagina_cola = list_get(ultima_pagina->segmento->tabla,ultima_pagina->nro_pagina);
+		if(obtener_key(pagina_cola) == key)
+			return ultima_pagina;
+		else
+			return NULL;
+	}
+	else
+		return NULL;
+
+}
+
+static void actualizar_cola(int nro_pagina, t_segmento* tabla){
 
 	int is_seeked_queue_element(t_cola_LRU* cola_element){
-		return (cola_element->nro_pagina == key && !strcmp(tabla->nombre_tabla,cola_element->segmento->nombre_tabla));
+		if(!strcmp(tabla->nombre_tabla,cola_element->segmento->nombre_tabla)){
+			t_pagina* pag_actual = list_get(cola_element->segmento->tabla, cola_element->nro_pagina);
+			return pag_actual->nro == nro_pagina;
+		}
+		return false;
 	}
 
 	t_cola_LRU* elemento = (t_cola_LRU*)list_remove_by_condition(cola_LRU->elements,(void*)is_seeked_queue_element);
@@ -243,15 +286,14 @@ static void actualizar_cola(int key, t_segmento* tabla){
 		queue_push(cola_LRU,elemento);
 	else{
 		t_cola_LRU* new_element = malloc(sizeof(t_cola_LRU));
-		new_element->nro_pagina = key;
-		new_element->segmento->nombre_tabla = malloc(size_of_string(tabla->nombre_tabla));
-		strcpy(new_element->segmento->nombre_tabla,tabla->nombre_tabla);
+		new_element->nro_pagina = nro_pagina;
+		new_element->segmento = tabla;
 
 		queue_push(cola_LRU,new_element);
 	}
 }
 
-static t_frame* algoritmo_reemplazo(const int key, const char* valor){
+static t_frame* algoritmo_reemplazo(const KEY_T key, const char* valor){
 
 	t_cola_LRU* cabeza_cola = malloc(sizeof(t_cola_LRU));
 	t_cola_LRU* primer_elemento = queue_peek(cola_LRU);
@@ -262,21 +304,32 @@ static t_frame* algoritmo_reemplazo(const int key, const char* valor){
 			!strcmp(primer_elemento->segmento->nombre_tabla, cabeza_cola->segmento->nombre_tabla))
 			break;
 
-		t_pagina* ultima_pagina = (t_pagina*)list_get(primer_elemento->segmento->tabla, cabeza_cola->nro_pagina);
+		t_pagina* ultima_pagina = (t_pagina*)list_remove(cabeza_cola->segmento->tabla, cabeza_cola->nro_pagina);
 
 		if(ultima_pagina->modificado == MODIFICADO){
+			list_add_in_index(cabeza_cola->segmento->tabla,cabeza_cola->nro_pagina, ultima_pagina);
 			queue_push(cola_LRU,cabeza_cola);
 			continue;
 		}
 
+		t_pagina* _cambia_nro_pagina(t_pagina* pagina_a_modificar){
+			if(pagina_a_modificar->nro > ultima_pagina->nro){
+				pagina_a_modificar->nro -= 1;
+			}
+			return pagina_a_modificar;
+		}
+		tabla_paginas aux_tabla_paginas = list_duplicate(cabeza_cola->segmento->tabla);
+		cabeza_cola->segmento->tabla = list_map(aux_tabla_paginas,(void*)_cambia_nro_pagina);
+
+		t_frame* frame_reemplazado = copiar_a_memoria(ultima_pagina->frame,key, time(NULL), valor);
+		list_destroy(aux_tabla_paginas);
+		free(ultima_pagina);
 		free(cabeza_cola);
-		return copiar_a_memoria(ultima_pagina->nro_frame,key, time(NULL), valor);
+		return frame_reemplazado;
 	}
 
 	free(cabeza_cola);
-	printf("Memoria está FULL, iniciando proceso de journal\n");
 	esta_full_memoria = true;
-	hacer_journal();
 	return NULL;
 }
 
@@ -286,7 +339,9 @@ static void segment_destroyer(t_segmento* segmento_a_destruir){
 
 	//TODO ver como hacer coincidir el numero de página con la página
 	int is_seeked_key(t_cola_LRU* cola_element){
-		return cola_element->nro_pagina == pagina_a_destruir->nro_frame;
+		KEY_T key;
+		memcpy(&key,pagina_a_destruir->frame->base,KEY_OFFSET);
+		return cola_element->nro_pagina == key;
 	}
 
 	void cola_destroyer(t_cola_LRU* cola_element){
@@ -307,11 +362,15 @@ static void segment_destroyer(t_segmento* segmento_a_destruir){
 
 static void page_destroyer(t_pagina* pagina_a_destruir){
 	//int x = 0;
-	//memmove(pagina_a_destruir->pagina, &x, sizeof(t_frame));
-	bitarray_clean_bit(frame_bitarray, pagina_a_destruir->nro_frame);
-	//memcpy(cola_element->registro->pagina->value,NULL,0);
-	free(pagina_a_destruir->pagina);
+	//memmove(pagina_a_destruir->frame, &x, sizeof(t_frame));
+	bitarray_clean_bit(frame_bitarray, pagina_a_destruir->frame->nro_frame);
+	//memcpy(cola_element->registro->frame->value,NULL,0);
+	free(pagina_a_destruir->frame);
 	//free(pagina_a_destruir);?
+}
+
+static int _misma_tabla(t_cola_LRU* ultima_pagina, const char* nombre_tabla){
+	return (!strcmp(ultima_pagina->segmento->nombre_tabla, nombre_tabla));
 }
 
 /*
@@ -320,11 +379,11 @@ static void page_destroyer(t_pagina* pagina_a_destruir){
 		return 1;
 
 	int _is_bigger_key(t_pagina* x, t_pagina* y){
-		return x->pagina->key > y->pagina->key;
+		return x->frame->key > y->frame->key;
 	}
 
 	t_list* tabla_ordenada_segun_key = list_sorted(page_table,(void*)_is_bigger_key);
-	int key_anterior = (((t_pagina*)list_get(tabla_ordenada_segun_key, 0))->pagina->key);
+	int key_anterior = (((t_pagina*)list_get(tabla_ordenada_segun_key, 0))->frame->key);
 
 	return key_anterior+1;
 }
