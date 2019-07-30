@@ -89,9 +89,11 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			requestAPlanificar = crearEstructuraRequest(socket_memoria_request, lista_argumentos, operacion);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
+			else
+				log_info(logger, "Comando Select enviado a la Memoria\n");
 			break;
 		case INSERT:
-			log_info(logger, "Enviando comando INSERT a la Memoria\n");
+			log_info(logger, "Planificando Request Insert \n");
 			criterio_memoria_request = buscar_tabla_en_tablametadata(argumentos[0]);
 			if (criterio_memoria_request == Null) {
 				log_error(logger, "No existe metadatos de la tabla");
@@ -105,6 +107,8 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			requestAPlanificar = crearEstructuraRequest(socket_memoria_request, lista_argumentos, operacion);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
+			else
+				log_info(logger, "Comando INSERT enviado a la Memoria\n");
 			break;
 		case CREATE:
 			log_info(logger, "Enviando comando CREATE a la Memoria\n");
@@ -122,6 +126,8 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 			actualizar_tabla_metadatos(argumentos[0], argumentos[1]);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
+			else
+				log_info(logger, "Comando Create enviado a la Memoria\n");
 			break;
 		case DESCRIBE:
 			log_info(logger, "Enviando comando DESCRIBE a la Memoria\n");
