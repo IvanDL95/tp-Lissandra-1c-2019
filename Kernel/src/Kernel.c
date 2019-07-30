@@ -248,15 +248,19 @@ int asignar_memoria_criterio(char** argumentos) {
 
 	switch(criterio_a_asignar) {
 	case SC:
+		if(list_size(memoriasSC) == 1 ) {
+			log_error(logger, "Ya existe una memoria asociada al Criterio SC");
+			return -1;
+		}
 		list_add(memoriasSC, memoria_encontrada);
 		log_info(logger, "Memoria asignada a criterio SC");
 		break;
 	case SHC:
-		list_add(memoriasSC, memoria_encontrada);
+		list_add(memoriasSHC, memoria_encontrada);
 		log_info(logger, "Memoria asignada a criterio SHC");
 		break;
 	case EC:
-		list_add(memoriasSC, memoria_encontrada);
+		list_add(memoriasEC, memoria_encontrada);
 		log_info(logger, "Memoria asignada a criterio EC");
 		break;
 	case Null:
