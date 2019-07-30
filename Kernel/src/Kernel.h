@@ -60,7 +60,7 @@ t_requestAMemoria requestAPlanificar;
 
 int tamanio_value;
 
-t_requestAMemoria crearEstructuraRequest(t_list*, command_api);
+t_requestAMemoria crearEstructuraRequest(int, t_list*, command_api);
 
 int conectar_con_Memoria(char*, char*);
 
@@ -68,12 +68,23 @@ void parsear_archivo_lql(char*);
 
 void mostrarMetricas();
 
+int socket_memoria_request();
+
+void inicializar_metadata_tablas();
+criterio_memoria buscar_tabla_en_tablametadata(char*);
+
 void inicializar_memorias();
 void asignar_memoria(t_memoria*);
 int asignar_memoria_criterio(char**);
 criterio_memoria convertir_string_criterio(char *);
 int verificar_existe_memoria(int);
+int buscar_socket_memoria_request(criterio_memoria);
 
+//CREATE
+void actualizar_tabla_metadatos(char*, char*);
+int id_tabla = 0;
+
+//JOURNAL
 void journal_memorias();
 
 pthread_t thread_parser;

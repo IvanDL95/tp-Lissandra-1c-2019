@@ -22,7 +22,7 @@ typedef struct {
 } Configuracion_Kernel;
 
 typedef struct {
-	un_socket socketMemoria;
+	int socketMemoria;
 	t_list* listaArgumentos;
 	command_api comando;
 

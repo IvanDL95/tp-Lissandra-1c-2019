@@ -32,7 +32,7 @@ int planificador(int config[]) {
 
 	// Espero a que haya un Script a Planificar
 	while(1) {
-		printf("\nSe bloquea el Hilo hasta que tenga algo a Planificar\n");
+		//printf("\nSe bloquea el Hilo hasta que tenga algo a Planificar\n");
 
 	    pthread_mutex_lock(&lockPlanificador);
 		pthread_cond_wait(&queuePlanificador, &lockPlanificador);
@@ -45,17 +45,11 @@ int planificador(int config[]) {
 		// Si tengo scripts a Planificar en Ready o Exec
 		while(list_size(colaReady) > 0 || list_size(colaExec) > 0) {
 			//printf("\nSe Desbloquea el Hilo - Tengo un script a Planificar\n");
-			printf("\n ------------------------ \n");
-			printf("\nCantidad de scripts a Planificar : %i \n", list_size(colaReady));
 			int cont = 1;
 
 			requestExec = list_remove(colaReady, 0);
 			list_add(colaExec, requestExec);
 			while (cont <= configQuantum ) {
-
-				printf("\n ------------------------ \n");
-				printf("\nCantidad en Cola Ready : %i \n", list_size(colaReady));
-				printf("\nCantidad en Cola Exec : %i \n", list_size(colaExec));
 				if (requestExec->tipo == REQUEST_API) {
 					//Ejecuto la request
 
@@ -81,7 +75,6 @@ int planificador(int config[]) {
 
 int planificarRequest(t_requestAMemoria dataRequest) {
 
-	printf("\nEnvio al Planificador\n");
 	data = crearEstructuraPlanificacion(dataRequest);
 	list_add(colaNew, &data);
 	pthread_cond_signal(&queuePlanificador);
@@ -98,12 +91,10 @@ t_SCB crearEstructuraPlanificacion(t_requestAMemoria request) {
 	requestSCB.punteroProximaLinea = 1;
 	requestSCB.estado = NEW;
 
-
 	return requestSCB;
 }
 
 int ejecutarRequest(t_requestAMemoria requestExec) {
-
 	if(requestExec.comando >= 0 && requestExec.comando <= 5) {
 		enviar_listado_de_strings(requestExec.socketMemoria, requestExec.listaArgumentos, requestExec.comando);
 		return 0;

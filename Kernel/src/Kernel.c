@@ -28,6 +28,8 @@ int main(int argc, char** argv){
 
 	inicializar_memorias();
 
+	inicializar_metadata_tablas();
+
 	if (conectar_con_Memoria(config_Kernel.IP_MEMORIA, config_Kernel.PUERTO_MEMORIA) == -1) return -1;
 
 	arg_planificacion[0] = config_Kernel.QUANTUM;
@@ -63,27 +65,61 @@ void get_configuracion(char* ruta){
 char* ejecutar_API(command_api operacion, char** argumentos){
 	log_debug(logger, "Ejecutando la API\n");
 	t_list * lista_argumentos = list_create();
+	criterio_memoria criterio_memoria_request = Null;
 	int i = 0;
+	int socket_memoria_request;
 	while(argumentos[i] != NULL) {
 		list_add(lista_argumentos, argumentos[i]);
 		i++;
 	}
 
-	requestAPlanificar = crearEstructuraRequest(lista_argumentos, operacion);
-
 	switch(operacion){
 		case SELECT:
 			log_info(logger, "Planificando Request Select \n");
+			criterio_memoria_request = buscar_tabla_en_tablametadata(argumentos[0]);
+			if (criterio_memoria_request == Null) {
+				log_error(logger, "No existe metadatos de la tabla");
+				return NULL;
+			}
+			socket_memoria_request = buscar_socket_memoria_request(criterio_memoria_request);
+			if (socket_memoria_request < 0) {
+				log_error(logger, "No existe Memoria Asociado el criterio de la tabla");
+				return NULL;
+			}
+			requestAPlanificar = crearEstructuraRequest(socket_memoria_request, lista_argumentos, operacion);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
 			break;
 		case INSERT:
 			log_info(logger, "Enviando comando INSERT a la Memoria\n");
+			criterio_memoria_request = buscar_tabla_en_tablametadata(argumentos[0]);
+			if (criterio_memoria_request == Null) {
+				log_error(logger, "No existe metadatos de la tabla");
+				return NULL;
+			}
+			socket_memoria_request = buscar_socket_memoria_request(criterio_memoria_request);
+			if (socket_memoria_request < 0) {
+				log_error(logger, "No existe Memoria Asociado el criterio de la tabla");
+				return NULL;
+			}
+			requestAPlanificar = crearEstructuraRequest(socket_memoria_request, lista_argumentos, operacion);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
 			break;
 		case CREATE:
 			log_info(logger, "Enviando comando CREATE a la Memoria\n");
+			criterio_memoria_request = convertir_string_criterio(argumentos[1]);
+			if (criterio_memoria_request == Null) {
+				log_error(logger, "Error en Criterio");
+				return NULL;
+			}
+			socket_memoria_request = buscar_socket_memoria_request(criterio_memoria_request);
+			if (socket_memoria_request < 0) {
+				log_error(logger, "No existe Memoria Asociado el criterio de la tabla");
+				return NULL;
+			}
+			requestAPlanificar = crearEstructuraRequest(socket_memoria_request, lista_argumentos, operacion);
+			actualizar_tabla_metadatos(argumentos[0], argumentos[1]);
 			if (planificarRequest(requestAPlanificar) != 0 )
 				log_error(logger, "Error al Planificar Request");
 			break;
@@ -116,17 +152,18 @@ char* ejecutar_API(command_api operacion, char** argumentos){
 
 			break;
 		case METRICS:
-			printf("\nEjecutando METRICS\n");
+			log_info(logger, "Ejecutando METRICS");
 			mostrarMetricas();
 			break;
 		default:
-			printf("\nComando no reconocido\n\n");
+			log_info(logger, "Comando no reconocido");
 	}
 	return NULL;
 }
 
 int conectar_con_Memoria(char* ip_memoria, char* puerto_memoria){
 	t_memoria* nueva_memoria;
+	nueva_memoria = malloc(sizeof(t_memoria));
 	int un_socket;
 	un_socket = conectar_a(ip_memoria, puerto_memoria);
 
@@ -151,7 +188,7 @@ int conectar_con_Memoria(char* ip_memoria, char* puerto_memoria){
 //	}
 
 	nueva_memoria->id = 1;
-	nueva_memoria->ip = ip_memoria;
+	nueva_memoria->ip = copy_string(ip_memoria);
 	nueva_memoria->puerto = atoi(puerto_memoria);
 	nueva_memoria->socket_memoria = un_socket;
 
@@ -223,6 +260,7 @@ int asignar_memoria_criterio(char** argumentos) {
 }
 
 criterio_memoria convertir_string_criterio(char* string_convertir) {
+	string_to_upper(string_convertir);
 	static struct criterio_mem {
 		const char *key;
 		criterio_memoria token;
@@ -242,7 +280,6 @@ int verificar_existe_memoria(int numero_memoria){
 	int index_mem = 0;
 	t_memoria* memoria_encontrada;
 	cantidad_memorias = list_size(memorias);
-	printf("\ncantidad_memorias = %i\n", cantidad_memorias);
 	if (cantidad_memorias < 1) {
 		log_error(logger, "No hay memorias Disponibles - Ejecutar comando ADD");
 		return -1;
@@ -268,11 +305,81 @@ void inicializar_memorias(){
 }
 
 void asignar_memoria(t_memoria* estructura_memoria) {
-	t_memoria* estructura_prueba;
 	list_add(memorias, estructura_memoria);
 	log_info(logger, "Memoria asignada a lista de Memorias");
-	estructura_prueba = list_get(memorias, 0);
 	return;
+}
+
+void inicializar_metadata_tablas() {
+	tabla_metadatas = list_create();
+	return;
+}
+
+void actualizar_tabla_metadatos(char* nombre_tabla, char* criterio_tabla) {
+	t_metadata_tabla* metadata_temp;
+	int index_lista = 0;
+	int cantidad_tablas = 0;
+	cantidad_tablas = list_size(tabla_metadatas);
+	if(cantidad_tablas > 0){
+		metadata_temp = list_get(tabla_metadatas, index_lista);
+		while(index_lista + 1 <= cantidad_tablas) {
+			if (metadata_temp->table_name == nombre_tabla )
+				return; //Ya existe una tabla con el mismo nombre
+			else
+				index_lista++;
+		}
+	}
+
+	metadata_tabla.id = id_tabla++;
+	metadata_tabla.table_name = copy_string(nombre_tabla);
+	metadata_tabla.criterio = convertir_string_criterio(criterio_tabla);
+	list_add(tabla_metadatas, &metadata_tabla);
+	return;
+}
+
+criterio_memoria buscar_tabla_en_tablametadata(char* nombre_de_tabla) {
+	int index_lista = 0;
+	t_metadata_tabla* metadata_temp;
+	int cantidad_tablas = 0;
+	cantidad_tablas = list_size(tabla_metadatas);
+	if(cantidad_tablas < 1)
+		return Null;
+	metadata_temp = list_get(tabla_metadatas, index_lista);
+	while(index_lista + 1 <= cantidad_tablas) {
+		if (strcmp(metadata_temp->table_name, nombre_de_tabla) == 0 )
+			return metadata_temp->criterio; //Retorno Criterio de la Tabla
+		else
+			index_lista++;
+	}
+	return Null;
+}
+
+int buscar_socket_memoria_request(criterio_memoria criterio_a_buscar){
+	int socket_memoria_request = -1;
+	t_memoria* memoria_a_buscar = NULL;
+	switch(criterio_a_buscar){
+	case SC:
+		if(list_size(memoriasSC) < 1){
+			return -1;
+		}
+		memoria_a_buscar = list_get(memoriasSC, 0);
+		break;
+	case SHC:
+		if(list_size(memoriasSHC) < 1){
+			return -1;
+		}
+		break;
+	case EC:
+		if(list_size(memoriasEC) < 1){
+			return -1;
+		}
+		break;
+	default:
+		return socket_memoria_request; // return -1
+
+	}
+	socket_memoria_request = memoria_a_buscar->socket_memoria;
+	return socket_memoria_request;
 }
 
 //------------ Funciones de API ------------//
@@ -365,9 +472,9 @@ void mostrarMetricas() {
 	printf("\x1b[32m////////////////////////////////////////////////////////\x1b[0m\n");
 }
 
-t_requestAMemoria crearEstructuraRequest(t_list* argumentosRequest, command_api comandoRequest) {
+t_requestAMemoria crearEstructuraRequest(int socket_request, t_list* argumentosRequest, command_api comandoRequest) {
 	t_requestAMemoria dataRequest;
-	dataRequest.socketMemoria = socket_Memoria;
+	dataRequest.socketMemoria = socket_request;
 	dataRequest.listaArgumentos = argumentosRequest;
 	dataRequest.comando = comandoRequest;
 	return dataRequest;
